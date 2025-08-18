@@ -133,17 +133,21 @@ public class PEAKapalooza : BaseUnityPlugin
     {
         if (toggleAbseiling)
         {
+            backpackCheck = false;
             Logger.LogMessage("Intial Method");
             __instance.runStarted = true;
             __instance.StartCoroutine(Test());
             
+            Destroy(GameObject.Find("Map/Biome_4/Volcano/Peak/Box"));
             currentSegment = 3;
             return false;
         }
         return true;
-       
+          
     }
 
+
+    public static bool backpackCheck = false;
 
     public static IEnumerator Test()
     {
@@ -152,16 +156,18 @@ public class PEAKapalooza : BaseUnityPlugin
         yield return new WaitForSeconds(5);
         foreach (Character character in PlayerHandler.GetAllPlayerCharacters())
         {
-            yield return new WaitForSeconds(1);
-            //character.WarpPlayer(new Vector3(0f, 350f, -150f), true);
-            //character.WarpPlayer(new Vector3(0f, 300f, -150f), true);
             character.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
-            //character.WarpPlayer(GameObject.Find("Map/Biome_4/Volcano/Peak/Flag_planted_seagull").transform.localPosition, true);
+            if (!backpackCheck)
+            {
                 yield return new WaitForSeconds(1);
+                Character.localCharacter.refs.items.SpawnItemInHand("Backpack");
+                backpackCheck = true;
+            }
+            yield return new WaitForSeconds(1);
         }
-        //Destroy(GameObject.Find("Map/Biome_4/Volcano/Peak/Box"));
-            yield return new WaitForSeconds(3);
-            GameObject.Find("FogSphereSystem").SetActive(false);
+        yield return new WaitForSeconds(1);
+        GameObject.Find("FogSphereSystem").SetActive(false);
+
 
     }
 
