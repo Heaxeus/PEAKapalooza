@@ -155,7 +155,7 @@ public class PEAKapalooza : BaseUnityPlugin
             yield return new WaitForSeconds(1);
             //character.WarpPlayer(new Vector3(0f, 350f, -150f), true);
             //character.WarpPlayer(new Vector3(0f, 300f, -150f), true);
-            character.WarpPlayer(new Vector3(16f, 1230f, 2239f), true);
+            character.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
             //character.WarpPlayer(GameObject.Find("Map/Biome_4/Volcano/Peak/Flag_planted_seagull").transform.localPosition, true);
                 yield return new WaitForSeconds(1);
         }
@@ -349,7 +349,7 @@ public class PEAKapalooza : BaseUnityPlugin
 
 
             
-            if (value && __instance.item.holderCharacter && Vector3.Distance(GameObject.Find("BingBong(Clone)").transform.position, __instance.item.holderCharacter.transform.position) < 40f && wonGame == false)
+            if (value && __instance.item.holderCharacter && Vector3.Distance(GameObject.Find("BingBong(Clone)").transform.position, __instance.item.holderCharacter.Center) < 40f && wonGame == false)
             {
                 foreach (Character character in PlayerHandler.GetAllPlayerCharacters()) {
                     character.RPCEndGame_ForceWin();
