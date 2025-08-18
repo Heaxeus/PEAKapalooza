@@ -143,6 +143,7 @@ public class PEAKapalooza : BaseUnityPlugin
             }
             //Destroy(GameObject.Find("Map/Biome_4/Volcano/Peak/Box"));
             GameObject.Find("FogSphereSystem").SetActive(false);
+            currentSegment = 3;
             return false;
         }
         return true;
