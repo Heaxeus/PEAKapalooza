@@ -9,11 +9,13 @@ Any bugs can be put in the thread on the [PEAK modding discord](https://discord.
 - Turn off Blizzards/Rain/Tornados!
 - Make Tornados faster!
 - Make Fog constantly approach (currently up to Caldera)!
-- Abseiling (Peak->Beach) mode! Climb from the Peak to the Beach! (currently only works in Singleplayer)
+- Abseiling (Peak->Beach) mode! Climb from the Peak to the Beach!
 
 ## How to Use
 
 - Once in the Airport, open the Passport. There should be a button near the checkmark to go to the mod page.
+
+For Abseiling (Peak->Beach) mode, upon start, wait until everyone is teleported to the Peak. This will take a moment.
 
 ## Requirements
 
@@ -22,7 +24,7 @@ Any bugs can be put in the thread on the [PEAK modding discord](https://discord.
 ## Installation
 
 1. Download on [Thunderstore](https://thunderstore.io/c/peak/)
-2. Place the `.dll` in: /PEAK/BepInEx/plugins/
+2. Place the `.dll` folder in: /PEAK/BepInEx/plugins/
 3. Launch game!
 
 
