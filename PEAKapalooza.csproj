@@ -1,0 +1,82 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>PEAKapalooza</AssemblyName>
+    <Product>PEAKapalooza</Product>
+    <Version>0.6.0</Version>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <LangVersion>latest</LangVersion>
+    <RestoreAdditionalProjectSources>
+      https://api.nuget.org/v3/index.json;
+      https://nuget.bepinex.dev/v3/index.json;
+      https://nuget.samboy.dev/v3/index.json
+    </RestoreAdditionalProjectSources>
+    <RootNamespace>PEAKapalooza</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.Analyzers" Version="1.*" PrivateAssets="all" />
+    <PackageReference Include="BepInEx.Core" Version="5.*" />
+    <PackageReference Include="BepInEx.PluginInfoProps" Version="2.*" />
+    <PackageReference Include="UnityEngine.Modules" Version="6000.0.36" IncludeAssets="compile" />
+  </ItemGroup>
+  
+  <ItemGroup Condition="'$(TargetFramework.TrimEnd(`0123456789`))' == 'net'">
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.2" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="BepInEx.AssemblyPublicizer.MSBuild" Version="0.4.2" PrivateAssets="all" />
+
+    <!-- Publicize directly when referencing -->
+    <Reference Include="Assembly-CSharp.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Assembly-CSharp.dll</HintPath>
+    </Reference>
+
+    <Reference Include="PhotonUnityNetworking.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\PhotonUnityNetworking.dll</HintPath>
+    </Reference>
+
+
+    <Reference Include="PhotonRealtime.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\PhotonRealtime.dll</HintPath>
+    </Reference>
+
+    <Reference Include="Unity.TextMeshPro.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Unity.TextMeshPro.dll</HintPath>
+    </Reference>
+
+    <Reference Include="UnityEngine.UI.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\UnityEngine.UI.dll</HintPath>
+    </Reference>
+
+    <Reference Include="pworld.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\pworld.dll</HintPath>
+    </Reference>
+
+    <Reference Include="Zorro.Settings.Runtime.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Zorro.Settings.Runtime.dll</HintPath>
+    </Reference>
+    
+    <Reference Include="Unity.Localization.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Unity.Localization.dll</HintPath>
+    </Reference>
+    
+    <Reference Include="Zorro.UI.Runtime.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Zorro.UI.Runtime.dll</HintPath>
+    </Reference>
+
+    <Reference Include="Zorro.Core.Runtime.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Zorro.Core.Runtime.dll</HintPath>
+    </Reference>
+
+    <Reference Include="Zorro.PhotonUtility.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Zorro.PhotonUtility.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="cd &quot;F:\DND\steamapps\common\PEAK\PEAKapalooza\PEAKapalooza\bin\Debug\netstandard2.1&quot;&#xA;copy PEAKapalooza.dll &quot;F:\DND\steamapps\common\PEAK\BepInEx\plugins&quot;&#xA;F:\DND\steamapps\common\PEAK\PEAK.exe" />
+  </Target>
+</Project>
