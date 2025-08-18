@@ -9,7 +9,7 @@ Any bugs can be put in the thread on the [PEAK modding discord](https://discord.
 - Turn off Blizzards/Rain/Tornados!
 - Make Tornados faster!
 - Make Fog constantly approach (currently up to Caldera)!
-- Abseiling (Peak->Beach) mode! Climb from the Peak to the Beach!
+- Abseiling (Peak->Beach) mode! Climb from the Peak to the Beach! Your goal is to light a flare next to BingBong!
 
 ## How to Use
 
