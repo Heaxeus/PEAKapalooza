@@ -45,11 +45,17 @@ public class PEAKapalooza : BaseUnityPlugin
             c = true;
 
             Character.localCharacter.WarpPlayer(MapHandler.Instance.segments[4].reconnectSpawnPos.position, true);
-        }else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha2) && c == false)
-            {
-                c = true;
+        }
+        else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha2) && c == false)
+        {
+            c = true;
 
-                GameObject.Find("FogSphereSystem").SetActive(false);
+            GameObject.Find("FogSphereSystem").SetActive(false);
+        }
+        else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha3) && c == false)
+        {
+            c = true;
+            Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
             }
         if (debug)
         {
