@@ -5,7 +5,7 @@
 Any bugs can be put in the thread on the [PEAK modding discord](https://discord.gg/SAw86z24rB)
 
 
-![imgur](https://imgur.com/a/JxoGPRH)
+![](https://imgur.com/a/JxoGPRH)
 
 ## Known Bugs
 
