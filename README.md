@@ -4,6 +4,17 @@
 
 Any bugs can be put in the thread on the [PEAK modding discord](https://discord.gg/SAw86z24rB)
 
+
+![imgur](https://imgur.com/a/JxoGPRH)
+
+## Known Bugs
+
+- If doing multiple Peak -> Beach runs in a row, you must fully close an relaunch Peak for them to work.
+- Peak Unlimited can sometimes result in players not being teleported to the Peak currently, so a current workaround are the following hotkeys:
+    - CTRL + 1: TP's you to Kiln (Do before TP'ing to Peak!)
+    - CTRL + 2: Shuts off fog (mod does this, but can sometimes fail depending on load times)
+    - CTRL + 3: TP's you to Peak
+
 ## Features
 
 - Turn off Blizzards/Rain/Tornados!
