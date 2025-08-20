@@ -4,8 +4,8 @@
 
 Any bugs can be put in the thread on the [PEAK modding discord](https://discord.gg/SAw86z24rB)
 
-
-![](https://imgur.com/a/JxoGPRH)
+The passport should have a "Next Page" button in the top right.
+![](https://i.imgur.com/4gMWXUW.png)
 
 ## Known Bugs
 
