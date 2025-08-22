@@ -150,8 +150,10 @@ public class PEAKapalooza : BaseUnityPlugin
     public static IEnumerator Teleport()
     {
         GameObject.Find("FogSphereSystem").SetActive(false);
+        
         while (Vector3.Distance(GameObject.Find("Map/Biome_4/Volcano/Peak/Flag_planted_seagull/Flag Pole").transform.position, Character.localCharacter.Center) > 50)
         {
+            MapHandler.JumpToSegment(Segment.TheKiln);
             Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
             yield return new WaitForSeconds(2);
         }
@@ -297,25 +299,6 @@ public class PEAKapalooza : BaseUnityPlugin
             if (mapSegment2.dayNightProfile != null)
             {
                 DayNightManager.instance.BlendProfiles(mapSegment2.dayNightProfile);
-            }
-            if (!initialSegmentJump)
-            {
-                if (PhotonNetwork.IsMasterClient)
-                {
-                    Debug.Log(string.Format("Teleporting all players to {0} campfire..", segment));
-                    foreach (Character character in PlayerHandler.GetAllPlayerCharacters())
-                    {
-                        if (playersToTeleport.Contains(character.photonView.Owner.ActorNumber))
-                        {
-                            character.photonView.RPC("WarpPlayerRPC", RpcTarget.All, new object[] { vector, false });
-                        }
-                    }
-                }
-                if (sendToEveryone)
-                {
-                    CustomCommands<CustomCommandType>.SendPackage(new SyncMapHandlerDebugCommandPackage(segment, Array.Empty<int>()), ReceiverGroup.Others);
-                }
-                initialSegmentJump = true;
             }
 
             return false;
