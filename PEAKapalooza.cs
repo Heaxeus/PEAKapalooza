@@ -707,8 +707,6 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 rainZone.windActive = false;
             }
-            rainZone.windTimeRangeOff = new Vector2(5f, 5f);
-            rainZone.windTimeRangeOn = new Vector2(float.MaxValue, float.MaxValue);
         }
         if (toggleSnow)
         {
