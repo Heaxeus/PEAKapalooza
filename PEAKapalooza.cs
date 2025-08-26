@@ -45,12 +45,18 @@ public class PEAKapalooza : BaseUnityPlugin
             c = true;
 
             Character.localCharacter.WarpPlayer(MapHandler.Instance.segments[4].reconnectSpawnPos.position, true);
-        }else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha2) && c == false)
-            {
-                c = true;
+        }
+        else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha2) && c == false)
+        {
+            c = true;
 
-                GameObject.Find("FogSphereSystem").SetActive(false);
-            }
+            GameObject.Find("FogSphereSystem").SetActive(false);
+        }
+        else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha3) && c == false)
+        {
+            c = true;
+            Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
+        }
         if (debug)
         {
             if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha1) && c == false)
@@ -75,21 +81,15 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 c = true;
 
-
+                MapHandler.JumpToSegment(Segment.Caldera);
             }
             else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha5) && c == false)
             {
                 c = true;
 
-                MapHandler.JumpToSegment(Segment.Caldera);
-            }
-            else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha6) && c == false)
-            {
-                c = true;
-
                 MapHandler.JumpToSegment(Segment.TheKiln);
             }
-            else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha7) && c == false)
+            else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha6) && c == false)
             {
                 c = true;
 
@@ -133,10 +133,9 @@ public class PEAKapalooza : BaseUnityPlugin
     {
         if (toggleAbseiling)
         {
-            backpackCheck = false;
             Logger.LogMessage("Intial Method");
             __instance.runStarted = true;
-            __instance.StartCoroutine(Test());
+            __instance.StartCoroutine(Teleport());
             
             Destroy(GameObject.Find("Map/Biome_4/Volcano/Peak/Box"));
             currentSegment = 3;
@@ -147,28 +146,21 @@ public class PEAKapalooza : BaseUnityPlugin
     }
 
 
-    public static bool backpackCheck = false;
 
-    public static IEnumerator Test()
+    public static IEnumerator Teleport()
     {
-        yield return new WaitForSeconds(5);
-        MapHandler.JumpToSegment(Segment.TheKiln);
-        yield return new WaitForSeconds(5);
-        foreach (Character character in PlayerHandler.GetAllPlayerCharacters())
-        {
-            character.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
-            if (!backpackCheck)
-            {
-                yield return new WaitForSeconds(1);
-                Character.localCharacter.refs.items.SpawnItemInHand("Backpack");
-                backpackCheck = true;
-            }
-            yield return new WaitForSeconds(1);
-        }
-        yield return new WaitForSeconds(1);
         GameObject.Find("FogSphereSystem").SetActive(false);
-
-
+        
+        while (Vector3.Distance(GameObject.Find("Map/Biome_4/Volcano/Peak/Flag_planted_seagull/Flag Pole").transform.position, Character.localCharacter.Center) > 50)
+        {
+            MapHandler.JumpToSegment(Segment.TheKiln);
+            Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
+            yield return new WaitForSeconds(2);
+        }
+        
+        if(Vector3.Distance(GameObject.Find("Backpack(Clone)").transform.position, Character.localCharacter.Center) > 50f) Character.localCharacter.refs.items.SpawnItemInHand("Backpack");
+        yield return new WaitForSeconds(1);
+    
     }
 
 
@@ -307,25 +299,6 @@ public class PEAKapalooza : BaseUnityPlugin
             if (mapSegment2.dayNightProfile != null)
             {
                 DayNightManager.instance.BlendProfiles(mapSegment2.dayNightProfile);
-            }
-            if (!initialSegmentJump)
-            {
-                if (PhotonNetwork.IsMasterClient)
-                {
-                    Debug.Log(string.Format("Teleporting all players to {0} campfire..", segment));
-                    foreach (Character character in PlayerHandler.GetAllPlayerCharacters())
-                    {
-                        if (playersToTeleport.Contains(character.photonView.Owner.ActorNumber))
-                        {
-                            character.photonView.RPC("WarpPlayerRPC", RpcTarget.All, new object[] { vector, false });
-                        }
-                    }
-                }
-                if (sendToEveryone)
-                {
-                    CustomCommands<CustomCommandType>.SendPackage(new SyncMapHandlerDebugCommandPackage(segment, Array.Empty<int>()), ReceiverGroup.Others);
-                }
-                initialSegmentJump = true;
             }
 
             return false;
@@ -488,10 +461,7 @@ public class PEAKapalooza : BaseUnityPlugin
             passportPage.SetActive(false);
 
 
-            pageButtons = new GameObject();
-            pageButtons.name = "PageButtons";
-            pageButtons.transform.SetParent(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel").transform);
-            pageButtons.transform.localPosition = new Vector3(296.2772f, 602.6318f, 0f);
+            Logger.LogMessage("1");
 
 
 
@@ -500,9 +470,9 @@ public class PEAKapalooza : BaseUnityPlugin
             nextPageButton = Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close"));
             nextPageButton.name = "NextPageButton";
 
-            nextPageButton.transform.SetParent(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/PageButtons").transform);
+            nextPageButton.transform.SetParent(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel").transform);
             nextPageButton.transform.localScale = new Vector3(0.66f, .66f, .66f);
-            nextPageButton.transform.localPosition = new Vector3(-84.4186f, -603.2728f, 0f);
+            nextPageButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(570f, -61f);
 
 
             nextPageButton.GetComponent<Button>().onClick = new Button.ButtonClickedEvent();
@@ -517,16 +487,16 @@ public class PEAKapalooza : BaseUnityPlugin
 
             prevPageButton = Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close"));
             prevPageButton.name = "PrevPageButton";
-            prevPageButton.transform.SetParent(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/PageButtons").transform);
+            prevPageButton.transform.SetParent(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2").transform);
             prevPageButton.transform.localScale = new Vector3(0.66f, .66f, .66f);
-            prevPageButton.transform.localPosition = new Vector3(-856.7273f, -603.2728f, 0f);
+            prevPageButton.GetComponent<RectTransform>().anchoredPosition = new Vector2(70f, -61);
 
             prevPageButton.GetComponent<Button>().onClick = new Button.ButtonClickedEvent();
             prevPageButton.GetComponent<Button>().onClick.AddListener(PrevPage);
 
-            DestroyImmediate(GameObject.Find("PrevPageButton/Box/Icon").GetComponent<RawImage>());
-            GameObject.Find("PrevPageButton/Box/Icon").AddComponent<TextMeshProUGUI>();
-            GameObject.Find("PrevPageButton/Box/Icon").GetComponent<TextMeshProUGUI>().text = "<";
+            DestroyImmediate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/PrevPageButton/Box/Icon").GetComponent<RawImage>());
+            GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/PrevPageButton/Box/Icon").AddComponent<TextMeshProUGUI>();
+            GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/PrevPageButton/Box/Icon").GetComponent<TextMeshProUGUI>().text = "<";
 
             prevPageButton.SetActive(false);
 
@@ -737,8 +707,6 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 rainZone.windActive = false;
             }
-            rainZone.windTimeRangeOff = new Vector2(5f, 5f);
-            rainZone.windTimeRangeOn = new Vector2(float.MaxValue, float.MaxValue);
         }
         if (toggleSnow)
         {
@@ -825,7 +793,7 @@ public class PEAKapalooza : BaseUnityPlugin
         GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel").SetActive(true);
         passportPage.SetActive(false);
         nextPageButton.SetActive(true);
-        currentPage++;
+        currentPage--;
         if (prevPageButton.activeSelf)
         {
             prevPageButton.SetActive(false);
