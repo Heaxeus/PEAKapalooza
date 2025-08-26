@@ -1,6 +1,6 @@
 # PEAKapalooza
 
-**PEAKapalooza** contains a number of small to medium chooseable changes to the game, along with a couple larger "gamemodes"!
+**PEAKapalooza** contains a number of small to medium mix-and-match changes to the game, along with a couple larger "gamemodes"!
 
 Any bugs can be put in the thread on the [PEAK modding discord](https://discord.gg/SAw86z24rB)
 
@@ -9,24 +9,21 @@ The passport should have a "Next Page" button in the top right.
 
 ## Known Bugs
 
-- If doing multiple Peak -> Beach runs in a row, you must fully close an relaunch Peak for them to work.
-- Peak Unlimited can sometimes result in players not being teleported to the Peak currently, so a current workaround are the following hotkeys:
-    - CTRL + 1: TP's you to Kiln (Do before TP'ing to Peak!)
-    - CTRL + 2: Shuts off fog (mod does this, but can sometimes fail depending on load times)
-    - CTRL + 3: TP's you to Peak
+- If doing multiple Peak To Beach runs in a row, you must fully close an relaunch Peak for them to work.
+- Everyone joining in Peak to Beach mode must be in lobby when game starts. Joining into a running game will break things!
 
 ## Features
 
 - Turn off Blizzards/Rain/Tornados!
 - Make Tornados faster!
 - Make Fog constantly approach (currently up to Caldera)!
-- Abseiling (Peak->Beach) mode! Climb from the Peak to the Beach! Your goal is to light a flare next to BingBong!
+- Peak To Beach mode! Climb from the Peak to the Beach! Your goal is to light a flare next to BingBong!
 
 ## How to Use
 
 - Once in the Airport, open the Passport. There should be a button near the checkmark to go to the mod page.
 
-For Abseiling (Peak->Beach) mode, upon start, wait until everyone is teleported to the Peak. This will take a moment.
+!! For Peak To Beach mode, upon start, wait until everyone is teleported to the Peak. This will take a moment. !!
 
 ## Requirements
 
