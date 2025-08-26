@@ -5,7 +5,7 @@
 Any bugs can be put in the thread on the [PEAK modding discord](https://discord.gg/SAw86z24rB)
 
 The passport should have a "Next Page" button in the top right.
-![](https://i.imgur.com/4gMWXUW.png)
+![](https://i.imgur.com/pMZ4kKY.png)
 
 ## Known Bugs
 
@@ -18,6 +18,7 @@ The passport should have a "Next Page" button in the top right.
 - Make Tornados faster!
 - Make Fog constantly approach (currently up to Caldera)!
 - Peak To Beach mode! Climb from the Peak to the Beach! Your goal is to light a flare next to BingBong!
+- And so much more!
 
 ## How to Use
 
