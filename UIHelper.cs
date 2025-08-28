@@ -100,6 +100,12 @@ class UIHelper(string internalName, UIHelper.UIType type, string textInfo, GameO
                 case "HotSunDisable":
                     GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/" + interactObject.name + "/Box/Icon").SetActive(PEAKapalooza.toggleHotSunDisable);
                     break;
+                case "LavaRisingDisable":
+                    GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/" + interactObject.name + "/Box/Icon").SetActive(PEAKapalooza.toggleLavaRisingDisable);
+                    break;
+                case "LavaRisingFaster":
+                    GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/" + interactObject.name + "/Box/Icon").SetActive(PEAKapalooza.toggleLavaRisingFaster);
+                    break;
             }
             
 
@@ -205,6 +211,10 @@ class UIHelper(string internalName, UIHelper.UIType type, string textInfo, GameO
                 PEAKapalooza.togglePeakToBeach = !PEAKapalooza.togglePeakToBeach;
                 PEAKapalooza.toggleFogDisable = true;
                 PEAKapalooza.toggleFogFaster = false;
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/LavaRisingDisableOptionButton/Box/Icon").SetActive(true);
+                PEAKapalooza.toggleLavaRisingDisable = true;
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/LavaRisingFasterOptionButton/Box/Icon").SetActive(false);
+                PEAKapalooza.toggleLavaRisingFaster = false;
                 break;
             case "NextPageButton":
                 GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel").SetActive(false);
@@ -264,6 +274,23 @@ class UIHelper(string internalName, UIHelper.UIType type, string textInfo, GameO
                 GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/ForceAlpineOptionButton/Box/Icon").SetActive(false);
                 PEAKapalooza.toggleForceAlpine = false;
                 break;
+            case "LavaRisingDisable":
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/" + interactObject.name + "/Box/Icon").SetActive(!PEAKapalooza.toggleLavaRisingDisable);
+                PEAKapalooza.toggleLavaRisingDisable = !PEAKapalooza.toggleLavaRisingDisable;
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/PeakToBeachOptionButton/Box/Icon").SetActive(false);
+                PEAKapalooza.togglePeakToBeach = false;
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/LavaRisingFasterOptionButton/Box/Icon").SetActive(false);
+                PEAKapalooza.toggleLavaRisingFaster = false;
+                break;
+            case "LavaRisingFaster":
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/" + interactObject.name + "/Box/Icon").SetActive(!PEAKapalooza.toggleLavaRisingFaster);
+                PEAKapalooza.toggleLavaRisingFaster = !PEAKapalooza.toggleLavaRisingFaster;
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/LavaRisingDisableOptionButton/Box/Icon").SetActive(false);
+                PEAKapalooza.toggleLavaRisingDisable = false;
+                GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/2/BG/PeakToBeachOptionButton/Box/Icon").SetActive(false);
+                PEAKapalooza.togglePeakToBeach = false;
+                break;
+
         }
     }
 }

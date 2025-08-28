@@ -481,6 +481,21 @@ public class PEAKapalooza : BaseUnityPlugin
     }
 
 
+    [HarmonyPatch(typeof(LavaRising), "Update")]
+    [HarmonyPrefix]
+    public static bool Prefix_LavaRisingDisable_Update(LavaRising __instance)
+    {
+        if (toggleLavaRisingDisable) {
+            return false;
+        }
+
+        if (toggleLavaRisingFaster) {
+            __instance.travelTime = 30f;
+        }
+        return true;
+    }
+
+
 
 
     [HarmonyPatch(typeof(OrbFogHandler), "Move")]
@@ -538,6 +553,8 @@ public class PEAKapalooza : BaseUnityPlugin
     public static bool toggleAlpineAndMesa = false;
     public static bool toggleSkyJungle = false;
     public static bool toggleHotSunDisable = false;
+    public static bool toggleLavaRisingDisable = false;
+    public static bool toggleLavaRisingFaster = false;
 
 
 
@@ -632,6 +649,22 @@ public class PEAKapalooza : BaseUnityPlugin
             
             fogDisable.CreateTextElement();
             fogDisable.CreateInteractElement();
+
+            numberOfElements++;
+
+
+            UIHelper lavaRisingDisable = new("LavaRisingDisable",UIHelper.UIType.BUTTON, "Disable Rising Lava: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
+            
+            lavaRisingDisable.CreateTextElement();
+            lavaRisingDisable.CreateInteractElement();
+
+            numberOfElements++;
+
+
+            UIHelper lavaRisingFaster = new("LavaRisingFaster",UIHelper.UIType.BUTTON, "Lava Rises 2x Faster: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
+            
+            lavaRisingFaster.CreateTextElement();
+            lavaRisingFaster.CreateInteractElement();
 
             numberOfElements++;
 
