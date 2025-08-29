@@ -401,6 +401,8 @@ public class PEAKapalooza : BaseUnityPlugin
 
 
 
+
+
     
     //Flare use next to BingBong wins the game
     [HarmonyPatch(typeof(Flare), "Update")]
@@ -746,6 +748,9 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 snowZone.windActive = false;
             }
+        }
+        if (toggleAlpineAndMesa || toggleForceAlpine) {
+            snowZone.windChillPerSecond = 0.05f;
         }
         if (toggleTornadoDisable)
         {
