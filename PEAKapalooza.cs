@@ -750,7 +750,7 @@ public class PEAKapalooza : BaseUnityPlugin
             }
         }
         if (toggleAlpineAndMesa || toggleForceAlpine) {
-            snowZone.windChillPerSecond = 0.05f;
+            snowZone.windChillPerSecond = 0.07f;
         }
         if (toggleTornadoDisable)
         {
