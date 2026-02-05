@@ -307,6 +307,13 @@ public class PEAKapalooza : BaseUnityPlugin
                     currentSegment--;
                 }
             }
+            foreach(Luggage luggage in Luggage.ALL_LUGGAGE)
+            {
+                if (luggage.state == Luggage.LuggageState.Open)
+                {
+                    luggage.anim.Play("Luggage_Open");
+                }
+            }
             return false;
         }
         return true;
@@ -428,6 +435,16 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
+    [HarmonyPatch(typeof(Luggage), "OpenLuggageRPC")]
+    [HarmonyPostfix]
+    public static void Prefix_FixLuggageState_OpenLuggageRPC(bool spawnItems,Luggage __instance)
+    {
+        if (togglePeakToBeach)
+        {
+            Luggage.ALL_LUGGAGE.Add(__instance);
+        }
+    }
+
     //Flare use next to BingBong wins the game
     [HarmonyPatch(typeof(Flare), "Update")]
     [HarmonyPrefix]
@@ -468,7 +485,7 @@ public class PEAKapalooza : BaseUnityPlugin
 
     [HarmonyPatch(typeof(MapHandler), "GoToSegment")]
     [HarmonyPostfix]
-    public static void Prefix_GenOptions_Logic(Segment s, MapHandler __instance)
+    public static void Postfix_GenOptions_GoToSegment(Segment s, MapHandler __instance)
     {
         Logger.LogMessage(s);
         if (toggleSkyJungle)
@@ -505,6 +522,10 @@ public class PEAKapalooza : BaseUnityPlugin
             }
         }
     }
+
+
+    
+
 
     [HarmonyPatch(typeof(OrbFogHandler), "WaitToMove")]
     [HarmonyPrefix]
