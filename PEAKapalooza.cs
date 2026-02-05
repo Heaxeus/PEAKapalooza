@@ -1,4 +1,17 @@
-﻿using System.Collections.Generic;
+﻿/**
+Notes
+Lava in Caldera rises using RisingLava class (Map/Biome_4/Volcano/Volcano_Segment/Mechanics/RisingLava), has a Start Position, End Position denoted by TopTransform position, Time to Move, and will lerp between them within timeframe.
+
+NetworkConnector class has methods that are called when players join lobby,etc. Use as refertence for distribting selected options.
+
+For New players:
+    MapHandler does alot, CharacterSpawner has compiler methods that call SpawnSelfAtBaseCamp and SpawnSelfAtSpecificPosition, the former being used for new players, latter for returning
+**/
+
+
+
+
+using System.Collections.Generic;
 using BepInEx;
 using BepInEx.Logging;
 using HarmonyLib;
@@ -14,6 +27,7 @@ using Zorro.PhotonUtility;
 using Photon.Realtime;
 using System.Collections;
 using UnityEditor.Analytics;
+using Peak.Network;
 
 namespace PEAKapalooza;
 
@@ -23,7 +37,7 @@ public class PEAKapalooza : BaseUnityPlugin
 {
     internal static new ManualLogSource Logger;
 
-    public static bool debug = false;
+    public static bool debug = true;
 
 
 
@@ -50,15 +64,22 @@ public class PEAKapalooza : BaseUnityPlugin
         Harmony.CreateAndPatchAll(typeof(PEAKapalooza));
     }
 
-     
-    
-    //DEBUG Collection of debug keybinds
+    /**
+     _____  ______ ____  _    _  _____ 
+    |  __ \|  ____|  _ \| |  | |/ ____|
+    | |  | | |__  | |_) | |  | | |  __ 
+    | |  | |  __| |  _ <| |  | | | |_ |
+    | |__| | |____| |_) | |__| | |__| |
+    |_____/|______|____/ \____/ \_____|
+                                             
+    **/
+
+    // Collection of debug keybinds
     public void Update()
     {
 
         if (debug)
         {
-
             if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha1) && keypress == false)
             {
                 keypress = true;
@@ -117,15 +138,16 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 keypress = false;
             }
+
         }
-        
+
     }
 
 
 
-    
 
-    //DEBUG used to teleport where looking
+
+    //Used to teleport where looking
     [HarmonyPatch(typeof(PointPinger), "ReceivePoint_Rpc")]
     [HarmonyPostfix]
     public static void Postfix_PingWarp_ReceivePoint_Rpc(PointPinger __instance)
@@ -135,54 +157,129 @@ public class PEAKapalooza : BaseUnityPlugin
             RaycastHit raycastHit;
             if (Camera.main.ScreenPointToRay(Input.mousePosition).Raycast(out raycastHit, HelperFunctions.LayerType.TerrainMap.ToLayerMask(), -1f) && __instance.photonView.IsMine)
             {
-                Logger.LogMessage(raycastHit.point);
                 __instance.character.WarpPlayer(raycastHit.point, true);
+            }
+        }
+    }
 
+    /**
+     _____  ______          _  __  _______ ____    ____  ______          _____ _    _ 
+    |  __ \|  ____|   /\   | |/ / |__   __/ __ \  |  _ \|  ____|   /\   / ____| |  | |
+    | |__) | |__     /  \  | ' /     | | | |  | | | |_) | |__     /  \ | |    | |__| |
+    |  ___/|  __|   / /\ \ |  <      | | | |  | | |  _ <|  __|   / /\ \| |    |  __  |
+    | |    | |____ / ____ \| . \     | | | |__| | | |_) | |____ / ____ \ |____| |  | |
+    |_|    |______/_/    \_\_|\_\    |_|  \____/  |____/|______/_/    \_\_____|_|  |_|
+                                                                                                                                                                
+    **/
+
+    //Sets up run when PeakToBeach is enabled
+    [HarmonyPatch(typeof(RunManager), "StartRun")]
+    [HarmonyPostfix]
+    public static void Prefix_PeakToBeach_StartRun(RunManager __instance)
+    {
+        if (togglePeakToBeach && startingRun)
+        {
+            Character.localCharacter.gameObject.AddComponent<PhotonInterfacer>();
+            Character.localCharacter.gameObject.GetComponent<PhotonInterfacer>().PhotonViewPassthrough(Character.localCharacter);
+
+            //Destroy(GameObject.Find("Map/Biome_4/Volcano/Peak/Box"));
+            currentSegment = 3;
+        }
+    }
+
+
+
+
+    public class PhotonInterfacer : MonoBehaviour
+    {
+        Character temp;
+        public void PhotonViewPassthrough(Character character)
+        {
+            temp = character;
+            character.photonView.RPC("RPC_Start_Peak_To_Beach", RpcTarget.All, []);
+
+        }
+
+
+        [PunRPC]
+        public void RPC_Start_Peak_To_Beach()
+        {
+            // while (Vector3.Distance(GameObject.Find("Map/Biome_4/Volcano/Peak/Flag_planted_seagull/Flag Pole").transform.position, temp.Center) > 50)
+            // {
+            MapHandler.JumpToSegment(Segment.TheKiln);
+            //
+            //}
+            //if (PhotonNetwork.IsMasterClient) temp.refs.items.SpawnItemInHand("Backpack");
+        }
+
+        //Changes terrain for each player
+        [PunRPC]
+        public void RPC_Next_Section_Peak_To_Beach()
+        {
+            if (currentSegment == 3)
+            {
+                MapHandler.JumpToSegment(Segment.Caldera);
+                if (toggleForceAlpine)
+                {
+                    GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                    GameObject.Find("Map/Biome_3/Mesa").SetActive(false);
+                }
+                if (toggleForceMesa)
+                {
+                    GameObject.Find("Map/Biome_3/Alpine").SetActive(false);
+                    GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+                }
+                if (toggleAlpineAndMesa)
+                {
+                    GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                    GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+                }
+            }
+            else if (currentSegment == 2)
+            {
+                MapHandler.JumpToSegment(Segment.Alpine);
+                if (toggleForceAlpine)
+                {
+                    GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                    GameObject.Find("Map/Biome_3/Mesa").SetActive(false);
+                }
+                if (toggleForceMesa)
+                {
+                    GameObject.Find("Map/Biome_3/Alpine").SetActive(false);
+                    GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+                }
+                if (toggleAlpineAndMesa)
+                {
+                    GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                    GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+                }
+            }
+            else if (currentSegment == 1)
+            {
+                MapHandler.JumpToSegment(Segment.Tropics);
+                if (toggleSkyJungle)
+                {
+                    GameObject.Find("Map/Biome_2/Tropics/Jungle_Segment/Ground").SetActive(false);
+                    GameObject.Find("Map/Biome_2/Tropics/Jungle_Segment/SkyJungle").SetActive(true);
+                }
+            }
+            else if (currentSegment == 0)
+            {
+                MapHandler.JumpToSegment(Segment.Beach);
+                GameObject.Find("Map/Biome_1/Beach/Beach_Segment/crashed plane").SetActive(false);
             }
         }
     }
 
 
 
-    //Sets up run when PeakToBech is enabled
-    [HarmonyPatch(typeof(RunManager), "StartRun")]
-    [HarmonyPrefix]
-    public static bool Prefix_PeakToBeach_StartRun(RunManager __instance)
-    {
-        
-        if (togglePeakToBeach && startingRun)
-        {
-            __instance.runStarted = true;
-            __instance.StartCoroutine(Teleport());
 
-            Destroy(GameObject.Find("Map/Biome_4/Volcano/Peak/Box"));
-            currentSegment = 3;
-            return false;
-        }
-        return true;
-          
-    }
+
+
 
 
     //Used to teleport players within coroutine
-    public static IEnumerator Teleport()
-    {
-        
-        
-        while (Vector3.Distance(GameObject.Find("Map/Biome_4/Volcano/Peak/Flag_planted_seagull/Flag Pole").transform.position, Character.localCharacter.Center) > 50)
-        {
-            MapHandler.JumpToSegment(Segment.TheKiln);
-            Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
-            yield return new WaitForSeconds(2);
-        }
-        
-        if(Vector3.Distance(GameObject.Find("Backpack(Clone)").transform.position, Character.localCharacter.Center) > 50f) Character.localCharacter.refs.items.SpawnItemInHand("Backpack");
-        yield return new WaitForSeconds(1);
-    
-    }
 
-
-    
 
     //Handles loading previous zone when lighting Campfire
     [HarmonyPatch(typeof(Campfire), "Light_Rpc")]
@@ -191,115 +288,30 @@ public class PEAKapalooza : BaseUnityPlugin
     {
         if (togglePeakToBeach)
         {
+            if (__instance.gameObject.GetComponent<PhotonInterfacer>() == null)
+            {
+                __instance.gameObject.AddComponent<PhotonInterfacer>();
+            }
             __instance.state = Campfire.FireState.Lit;
             __instance.UpdateLit();
             __instance.smokeParticlesOff.Stop();
             __instance.smokeParticlesLit.Play();
             GUIManager.instance.RefreshInteractablePrompt();
-
-            if (currentSegment == 3)
+            if (PhotonNetwork.IsMasterClient)
             {
-                currentSegment--;
-                MapHandler.JumpToSegment(Segment.Caldera);
-                if (toggleForceAlpine)
+                Logger.LogWarning("CURRENT SEGMENT: " + currentSegment);
+                __instance.view.RPC("RPC_Next_Section_Peak_To_Beach", RpcTarget.All, []);
+                Singleton<MapHandler>.Instance.currentSegment = currentSegment;
+                if (currentSegment != 0)
                 {
-                    GameObject.Find("Map/Biome_3/Snow").SetActive(true);
-                    GameObject.Find("Map/Biome_3/Desert").SetActive(false);
+                    currentSegment--;
                 }
-                if (toggleForceMesa)
-                {
-                    GameObject.Find("Map/Biome_3/Snow").SetActive(false);
-                    GameObject.Find("Map/Biome_3/Desert").SetActive(true);
-                }
-                if (toggleAlpineAndMesa) {
-                    GameObject.Find("Map/Biome_3/Snow").SetActive(true);
-                    GameObject.Find("Map/Biome_3/Desert").SetActive(true);
-                }
-
             }
-            else if (currentSegment == 2)
-            {
-                currentSegment--;
-                MapHandler.JumpToSegment(Segment.Alpine);
-                if (toggleForceAlpine)
-                {
-                    GameObject.Find("Map/Biome_3/Snow").SetActive(true);
-                    GameObject.Find("Map/Biome_3/Desert").SetActive(false);
-                }
-                if (toggleForceMesa)
-                {
-                    GameObject.Find("Map/Biome_3/Snow").SetActive(false);
-                    GameObject.Find("Map/Biome_3/Desert").SetActive(true);
-                }
-                if (toggleAlpineAndMesa)
-                {
-                    GameObject.Find("Map/Biome_3/Snow").SetActive(true);
-                    GameObject.Find("Map/Biome_3/Desert").SetActive(true);
-                }
-
-
-
-            }
-            else if (currentSegment == 1)
-            {
-                currentSegment--;
-                MapHandler.JumpToSegment(Segment.Tropics);
-                GameObject.Find("Map/Biome_2/Jungle/Jungle_Segment/Ground").SetActive(false);
-                GameObject.Find("Map/Biome_2/Jungle/Jungle_Segment/SkyJungle").SetActive(true);
-
-            }
-            else if (currentSegment == 0)
-            {
-                currentSegment--;
-                MapHandler.JumpToSegment(Segment.Beach);
-                GameObject.Find("Map/Biome_1/Beach/Beach_Segment/crashed plane").SetActive(false);
-            }
-
             return false;
         }
         return true;
     }
 
-
-    [HarmonyPatch(typeof(MapHandler), "GoToSegment")]
-    [HarmonyPostfix]
-    public static void Prefix_GenOptions_Logic(Segment s, MapHandler __instance)
-    {
-        Logger.LogMessage(s);
-        if (toggleSkyJungle)
-        {
-            if (s == Segment.Tropics)
-            {
-                GameObject.Find("Map/Biome_2/Jungle/Jungle_Segment/Ground").SetActive(false);
-                GameObject.Find("Map/Biome_2/Jungle/Jungle_Segment/SkyJungle").SetActive(true);
-            }
-        }
-        if (toggleForceAlpine)
-        {
-            if (s == Segment.Alpine)
-            {
-                GameObject.Find("Map/Biome_3/Snow").SetActive(true);
-                GameObject.Find("Map/Biome_3/Desert").SetActive(false);
-            }
-            
-        }
-        if (toggleForceMesa)
-        {
-            if (s == Segment.Alpine)
-            {
-                GameObject.Find("Map/Biome_3/Snow").SetActive(false);
-                GameObject.Find("Map/Biome_3/Desert").SetActive(true);
-            }
-        }
-        if (toggleAlpineAndMesa)
-        {
-            if (s == Segment.Alpine)
-            {
-                GameObject.Find("Map/Biome_3/Snow").SetActive(true);
-                GameObject.Find("Map/Biome_3/Desert").SetActive(true);
-            }
-        }
-    }
 
 
     //Handles loading previous zone without teleporting player
@@ -333,6 +345,8 @@ public class PEAKapalooza : BaseUnityPlugin
                 num--;
             }
             MapHandler.MapSegment mapSegment2 = Singleton<MapHandler>.Instance.segments[num];
+            //mapSegment2.reconnectSpawnPos.position = Singleton<MapHandler>.Instance.segments[num - 1].reconnectSpawnPos.position;
+
             mapSegment2.segmentParent.SetActive(true);
             if (mapSegment2.segmentCampfire)
             {
@@ -388,10 +402,25 @@ public class PEAKapalooza : BaseUnityPlugin
                     Debug.Log("NO CAMPFIRE SEGMENT");
                 }
             }
-            
+
             if (mapSegment2.dayNightProfile != null)
             {
                 DayNightManager.instance.BlendProfiles(mapSegment2.dayNightProfile);
+            }
+            if (PhotonNetwork.IsMasterClient && segment == Segment.TheKiln)
+            {
+                Debug.Log(string.Format("Teleporting all players to {0} campfire..", segment));
+                foreach (Character character in PlayerHandler.GetAllPlayerCharacters())
+                {
+                    if (playersToTeleport.Contains(character.photonView.Owner.ActorNumber))
+                    {
+                        character.photonView.RPC("WarpPlayerRPC", RpcTarget.All, new object[] { new Vector3(16f, 1235f, 2239f), false });
+                    }
+                }
+            }
+            if (sendToEveryone)
+            {
+                CustomCommands<CustomCommandType>.SendPackage(new SyncMapHandlerDebugCommandPackage(segment, Array.Empty<int>()), ReceiverGroup.Others);
             }
             return false;
         }
@@ -399,11 +428,6 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
-
-
-
-
-    
     //Flare use next to BingBong wins the game
     [HarmonyPatch(typeof(Flare), "Update")]
     [HarmonyPrefix]
@@ -418,10 +442,11 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 __instance.EnableFlareVisuals();
             }
-            
+
             if (value && __instance.item.holderCharacter && Vector3.Distance(GameObject.Find("BingBong(Clone)").transform.position, __instance.item.holderCharacter.Center) < 40f && wonGame == false)
             {
-                foreach (Character character in PlayerHandler.GetAllPlayerCharacters()) {
+                foreach (Character character in PlayerHandler.GetAllPlayerCharacters())
+                {
                     character.RPCEndGame_ForceWin();
                 }
                 wonGame = true;
@@ -431,7 +456,55 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
+    /**
+     __  __  ____  _____ _____ ______ _____ ______ _____   _____ 
+    |  \/  |/ __ \|  __ \_   _|  ____|_   _|  ____|  __ \ / ____|
+    | \  / | |  | | |  | || | | |__    | | | |__  | |__) | (___  
+    | |\/| | |  | | |  | || | |  __|   | | |  __| |  _  / \___ \ 
+    | |  | | |__| | |__| || |_| |     _| |_| |____| | \ \ ____) |
+    |_|  |_|\____/|_____/_____|_|    |_____|______|_|  \_\_____/ 
+                                                              
+    **/
 
+    [HarmonyPatch(typeof(MapHandler), "GoToSegment")]
+    [HarmonyPostfix]
+    public static void Prefix_GenOptions_Logic(Segment s, MapHandler __instance)
+    {
+        Logger.LogMessage(s);
+        if (toggleSkyJungle)
+        {
+            if (s == Segment.Tropics)
+            {
+                GameObject.Find("Map/Biome_2/Tropics/Jungle_Segment/Ground").SetActive(false);
+                GameObject.Find("Map/Biome_2/Tropics/Jungle_Segment/SkyJungle").SetActive(true);
+            }
+        }
+        if (toggleForceAlpine)
+        {
+            if (s == Segment.Alpine)
+            {
+                GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                GameObject.Find("Map/Biome_3/Mesa").SetActive(false);
+            }
+
+        }
+        if (toggleForceMesa)
+        {
+            if (s == Segment.Alpine)
+            {
+                GameObject.Find("Map/Biome_3/Alpine").SetActive(false);
+                GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+            }
+        }
+        if (toggleAlpineAndMesa)
+        {
+            if (s == Segment.Alpine)
+            {
+                GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+            }
+        }
+    }
 
     [HarmonyPatch(typeof(OrbFogHandler), "WaitToMove")]
     [HarmonyPrefix]
@@ -476,7 +549,8 @@ public class PEAKapalooza : BaseUnityPlugin
     [HarmonyPrefix]
     public static bool Prefix_HotSunDisable_Update(HotSun __instance)
     {
-        if (toggleHotSunDisable) {
+        if (toggleHotSunDisable)
+        {
             return false;
         }
         return true;
@@ -487,11 +561,13 @@ public class PEAKapalooza : BaseUnityPlugin
     [HarmonyPrefix]
     public static bool Prefix_LavaRisingDisable_Update(LavaRising __instance)
     {
-        if (toggleLavaRisingDisable) {
+        if (toggleLavaRisingDisable)
+        {
             return false;
         }
 
-        if (toggleLavaRisingFaster) {
+        if (toggleLavaRisingFaster)
+        {
             __instance.travelTime = 30f;
         }
         return true;
@@ -508,7 +584,7 @@ public class PEAKapalooza : BaseUnityPlugin
         {
             __instance.sphere.REVEAL_AMOUNT = 0f;
             __instance.sphere.ENABLE = Mathf.MoveTowards(__instance.sphere.ENABLE, 1f, Time.deltaTime * 0.1f);
-            __instance.currentSize -= __instance.speed *2 * Time.deltaTime;
+            __instance.currentSize -= __instance.speed * 2 * Time.deltaTime;
             if (__instance.currentSize == 0f)
             {
                 __instance.Stop();
@@ -537,10 +613,18 @@ public class PEAKapalooza : BaseUnityPlugin
         }
     }
 
-
-
+    /**
+     _____         _____ _____ _____   ____  _____ _______   _    _ _____ 
+    |  __ \ /\    / ____/ ____|  __ \ / __ \|  __ \__   __| | |  | |_   _|
+    | |__) /  \  | (___| (___ | |__) | |  | | |__) | | |    | |  | | | |  
+    |  ___/ /\ \  \___ \\___ \|  ___/| |  | |  _  /  | |    | |  | | | |  
+    | |  / ____ \ ____) |___) | |    | |__| | | \ \  | |    | |__| |_| |_ 
+    |_| /_/    \_\_____/_____/|_|     \____/|_|  \_\ |_|     \____/|_____|
+                                                                       
+                                                                       
+    **/
     public static bool setupComplete = false;
-    
+
     public static bool toggleRainDisable = false;
     public static bool toggleSnowDisable = false;
     public static bool toggleTornadoDisable = false;
@@ -569,29 +653,29 @@ public class PEAKapalooza : BaseUnityPlugin
     {
         if (!setupComplete)
         {
-            
-            UIHelper passportPage = new("2",UIHelper.UIType.PAGE,"",null,Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel")));
+
+            UIHelper passportPage = new("2", UIHelper.UIType.PAGE, "", null, Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel")));
             passportPage.CreateInteractElement();
 
 
-            UIHelper nextPage = new("NextPageButton",UIHelper.UIType.NAVBUTTON,">",null,Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),0,570f,-61f);
+            UIHelper nextPage = new("NextPageButton", UIHelper.UIType.NAVBUTTON, ">", null, Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), 0, 570f, -61f);
             nextPage.CreateInteractElement();
 
 
 
-            UIHelper prevPage = new("PrevPageButton", UIHelper.UIType.NAVBUTTON,"<",null,Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),0,70,-61f);
+            UIHelper prevPage = new("PrevPageButton", UIHelper.UIType.NAVBUTTON, "<", null, Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), 0, 70, -61f);
             prevPage.CreateInteractElement();
 
 
 
             UIHelper snowDisable = new("SnowDisable", UIHelper.UIType.BUTTON, "Disable Blizzards:", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
-            
+
             snowDisable.CreateTextElement();
             snowDisable.CreateInteractElement();
             numberOfElements++;
 
 
-            UIHelper snowInfinite = new("SnowInfinite", UIHelper.UIType.BUTTON, "Infinite Blizzard: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")),Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
+            UIHelper snowInfinite = new("SnowInfinite", UIHelper.UIType.BUTTON, "Infinite Blizzard: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
 
             snowInfinite.CreateTextElement();
             snowInfinite.CreateInteractElement();
@@ -599,118 +683,118 @@ public class PEAKapalooza : BaseUnityPlugin
             numberOfElements++;
 
 
-            UIHelper rainDisable = new("RainDisable",UIHelper.UIType.BUTTON,"Disable Rain: ",Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
+            UIHelper rainDisable = new("RainDisable", UIHelper.UIType.BUTTON, "Disable Rain: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
 
-            
+
             rainDisable.CreateTextElement();
             rainDisable.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper rainInfinite = new("RainInfinite",UIHelper.UIType.BUTTON,"Infinite Rain: ",Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
+            UIHelper rainInfinite = new("RainInfinite", UIHelper.UIType.BUTTON, "Infinite Rain: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
 
-            
+
             rainInfinite.CreateTextElement();
             rainInfinite.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper tornadoFaster = new("TornadoFaster",UIHelper.UIType.BUTTON, "Tornado 10x Faster: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper tornadoFaster = new("TornadoFaster", UIHelper.UIType.BUTTON, "Tornado 10x Faster: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             tornadoFaster.CreateTextElement();
             tornadoFaster.CreateInteractElement();
 
             numberOfElements++;
 
-            UIHelper tornadoDisable = new("TornadoDisable",UIHelper.UIType.BUTTON, "Disable Tornados: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper tornadoDisable = new("TornadoDisable", UIHelper.UIType.BUTTON, "Disable Tornados: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             tornadoDisable.CreateTextElement();
             tornadoDisable.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper hotSunDisable = new("HotSunDisable",UIHelper.UIType.BUTTON, "Disable Sun Heat: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper hotSunDisable = new("HotSunDisable", UIHelper.UIType.BUTTON, "Disable Sun Heat: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             hotSunDisable.CreateTextElement();
             hotSunDisable.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper fogFaster = new("FogFaster",UIHelper.UIType.BUTTON, "Fog 2x Faster: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper fogFaster = new("FogFaster", UIHelper.UIType.BUTTON, "Fog 2x Faster: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             fogFaster.CreateTextElement();
             fogFaster.CreateInteractElement();
 
             numberOfElements++;
 
-            UIHelper fogDisable = new("FogDisable",UIHelper.UIType.BUTTON, "Disable Fog: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper fogDisable = new("FogDisable", UIHelper.UIType.BUTTON, "Disable Fog: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             fogDisable.CreateTextElement();
             fogDisable.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper lavaRisingDisable = new("LavaRisingDisable",UIHelper.UIType.BUTTON, "Disable Rising Lava: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper lavaRisingDisable = new("LavaRisingDisable", UIHelper.UIType.BUTTON, "Disable Rising Lava: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             lavaRisingDisable.CreateTextElement();
             lavaRisingDisable.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper lavaRisingFaster = new("LavaRisingFaster",UIHelper.UIType.BUTTON, "Lava Rises 2x Faster: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper lavaRisingFaster = new("LavaRisingFaster", UIHelper.UIType.BUTTON, "Lava Rises 2x Faster: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             lavaRisingFaster.CreateTextElement();
             lavaRisingFaster.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper forceAlpine = new("ForceAlpine",UIHelper.UIType.BUTTON, "Force Alpine: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper forceAlpine = new("ForceAlpine", UIHelper.UIType.BUTTON, "Force Alpine: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             forceAlpine.CreateTextElement();
             forceAlpine.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper forceMesa = new("ForceMesa",UIHelper.UIType.BUTTON, "Force Mesa: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper forceMesa = new("ForceMesa", UIHelper.UIType.BUTTON, "Force Mesa: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             forceMesa.CreateTextElement();
             forceMesa.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper alpineAndMesa = new("AlpineAndMesa",UIHelper.UIType.BUTTON, "Alpine And Mesa Gen: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper alpineAndMesa = new("AlpineAndMesa", UIHelper.UIType.BUTTON, "Alpine And Mesa Gen: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             alpineAndMesa.CreateTextElement();
             alpineAndMesa.CreateInteractElement();
 
             numberOfElements++;
 
 
-            UIHelper skyJungle = new("SkyJungle",UIHelper.UIType.BUTTON, "Sky Jungle Gen: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+            UIHelper skyJungle = new("SkyJungle", UIHelper.UIType.BUTTON, "Sky Jungle Gen: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             skyJungle.CreateTextElement();
             skyJungle.CreateInteractElement();
 
             numberOfElements++;
 
-            
 
-            UIHelper peakToBeach = new("PeakToBeach",UIHelper.UIType.BUTTON, "Peak To Beach: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")),numberOfElements);
-            
+
+            UIHelper peakToBeach = new("PeakToBeach", UIHelper.UIType.BUTTON, "Peak To Beach: ", Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/Text/Name/Text")), Instantiate(GameObject.Find("GAME/PassportManager/PassportUI/Canvas/Panel/Panel/BG/UI_Close")), numberOfElements);
+
             peakToBeach.CreateTextElement();
             peakToBeach.CreateInteractElement();
 
             numberOfElements++;
-            
+
 
 
             setupComplete = true;
@@ -729,9 +813,9 @@ public class PEAKapalooza : BaseUnityPlugin
     public static void Peaking()
     {
 
-        rainZone = GameObject.Find("Map/Biome_2/Jungle/RainStorm").GetComponent<WindChillZone>();
-        snowZone = GameObject.Find("Map/Biome_3/Snow/SnowStorm").GetComponent<WindChillZone>();
-        tornados = GameObject.Find("Map/Biome_3/Desert/Desert_Segment/Misc/Tornados").GetComponent<TornadoSpawner>();
+        rainZone = GameObject.Find("Map/Biome_2/Tropics/RainStorm").GetComponent<WindChillZone>();
+        snowZone = GameObject.Find("Map/Biome_3/Alpine/SnowStorm").GetComponent<WindChillZone>();
+        tornados = GameObject.Find("Map/Biome_3/Mesa/Desert_Segment/Misc/Tornados").GetComponent<TornadoSpawner>();
 
         if (toggleRainDisable)
         {
@@ -749,8 +833,9 @@ public class PEAKapalooza : BaseUnityPlugin
                 snowZone.windActive = false;
             }
         }
-        if (toggleAlpineAndMesa || toggleForceAlpine) {
-            snowZone.windChillPerSecond = 0.07f;
+        if (toggleAlpineAndMesa || toggleForceAlpine)
+        {
+            //snowZone.windChillPerSecond = 0.07f;
         }
         if (toggleTornadoDisable)
         {
@@ -780,10 +865,11 @@ public class PEAKapalooza : BaseUnityPlugin
                 rainZone.windActive = true;
             }
         }
-        if (toggleFogDisable) {
+        if (toggleFogDisable)
+        {
             GameObject.Find("FogSphereSystem").SetActive(false);
         }
-        
+
     }
 
 
