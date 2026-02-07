@@ -1,13 +1,22 @@
 ﻿/**
 Notes
-Lava in Caldera rises using RisingLava class (Map/Biome_4/Volcano/Volcano_Segment/Mechanics/RisingLava), has a Start Position, End Position denoted by TopTransform position, Time to Move, and will lerp between them within timeframe.
+Lava in Caldera rises using LavaRising class (Map/Biome_4/Volcano/Volcano_Segment/Mechanics/RisingLava), has a Start Position, End Position denoted by TopTransform position, Time to Move, and will lerp between them within timeframe.
 
 NetworkConnector class has methods that are called when players join lobby,etc. Use as refertence for distribting selected options.
 
 For New players:
     MapHandler does alot, CharacterSpawner has compiler methods that call SpawnSelfAtBaseCamp and SpawnSelfAtSpecificPosition, the former being used for new players, latter for returning
+
+
+For wind direction, Vector is either .9701 0 .2425 (facing mountain, right), or -.9701 0 .2425 (facing mountain, left)
+
+Line 632, ONE OF THOSE WORKS! Test to see if recompiling shaders or if rebaking all lights works, pretty sure it's shaders. Will need to be done when the Mesa/Alpine area loads.
+
 **/
 
+/**
+The file globalgamemanagers in PEAK_DATA can be replaced to remove almost all of the white screen on load. Windows (I think) still lets a little flash of white get through.
+**/
 
 
 
@@ -28,6 +37,7 @@ using Photon.Realtime;
 using System.Collections;
 using UnityEditor.Analytics;
 using Peak.Network;
+using System.Drawing;
 
 namespace PEAKapalooza;
 
@@ -133,6 +143,15 @@ public class PEAKapalooza : BaseUnityPlugin
                 keypress = true;
                 Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
             }
+            else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha0) && keypress == false)
+            {
+                keypress = true;
+                foreach (LightVolume lv in FindObjectsByType<LightVolume>(FindObjectsSortMode.None))
+                {
+                    lv.Bake(null);
+                }
+                
+            }
 
             if (!Input.GetKey(KeyCode.LeftControl))
             {
@@ -143,8 +162,13 @@ public class PEAKapalooza : BaseUnityPlugin
 
     }
 
-
-
+    //Shows outline of Alpine storm area
+    [HarmonyPatch(typeof(WindChillZone), "Awake")]
+    [HarmonyPostfix]
+    public static void Postfix_ShowSnowstormGizmo_Awake(WindChillZone __instance)
+    {
+        __instance.OnDrawGizmosSelected();
+    }
 
 
     //Used to teleport where looking
@@ -307,7 +331,7 @@ public class PEAKapalooza : BaseUnityPlugin
                     currentSegment--;
                 }
             }
-            foreach(Luggage luggage in Luggage.ALL_LUGGAGE)
+            foreach (Luggage luggage in Luggage.ALL_LUGGAGE)
             {
                 if (luggage.state == Luggage.LuggageState.Open)
                 {
@@ -437,7 +461,7 @@ public class PEAKapalooza : BaseUnityPlugin
 
     [HarmonyPatch(typeof(Luggage), "OpenLuggageRPC")]
     [HarmonyPostfix]
-    public static void Prefix_FixLuggageState_OpenLuggageRPC(bool spawnItems,Luggage __instance)
+    public static void Prefix_FixLuggageState_OpenLuggageRPC(bool spawnItems, Luggage __instance)
     {
         if (togglePeakToBeach)
         {
@@ -483,6 +507,31 @@ public class PEAKapalooza : BaseUnityPlugin
                                                               
     **/
 
+
+    [HarmonyPatch(typeof(Pretitle), "Update")]
+    [HarmonyPrefix]
+    public static bool Prefix_StopBlindingMe_Update(Pretitle __instance)
+    {
+        __instance.allowedToSwitch = true;
+        return false;
+    }
+
+
+
+
+    [HarmonyPatch(typeof(MapHandler), "Awake")]
+    [HarmonyPostfix]
+    public static void Postfix_GenOptions_Awake(MapHandler __instance)
+    {
+        foreach (MapHandler.MapSegment s in __instance.segments)
+        {
+            Logger.LogWarning(s.biome);
+        }
+    }
+
+
+
+
     [HarmonyPatch(typeof(MapHandler), "GoToSegment")]
     [HarmonyPostfix]
     public static void Postfix_GenOptions_GoToSegment(Segment s, MapHandler __instance)
@@ -517,14 +566,31 @@ public class PEAKapalooza : BaseUnityPlugin
         {
             if (s == Segment.Alpine)
             {
-                GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
-                GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+                if (GameObject.Find("Map/Biome_3/Alpine").activeSelf)
+                {
+                    GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+                    foreach(PropSpawner ps in GameObject.Find("Map/Biome_3/Mesa").GetComponentsInChildren<PropSpawner>())
+                    {
+                        Logger.LogError(ps.transform.parent.name);
+                        ps.SpawnNew();
+                    }
+                }
+                else
+                {
+                    GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                    foreach(PropSpawner ps in GameObject.Find("Map/Biome_3/Alpine").GetComponentsInChildren<PropSpawner>())
+                    {
+                        ps.SpawnNew();
+                    }
+                }
+                
+                
             }
         }
     }
 
 
-    
+
 
 
     [HarmonyPatch(typeof(OrbFogHandler), "WaitToMove")]
@@ -575,6 +641,22 @@ public class PEAKapalooza : BaseUnityPlugin
             return false;
         }
         return true;
+    }
+
+
+
+
+
+    [HarmonyPatch(typeof(BakedVolumeLight), "Rebake")]
+    [HarmonyPostfix]
+    public static void Postfix_RebakeAllLights_Rebake(BakedVolumeLight __instance)
+    {
+        if (toggleAlpineAndMesa)
+        {
+            foreach(LightVolume lv in FindObjectsByType<LightVolume>(FindObjectsSortMode.None)){
+                lv.Bake(null);
+            }
+        }
     }
 
 
@@ -631,6 +713,10 @@ public class PEAKapalooza : BaseUnityPlugin
         {
             startingRun = true;
             Peaking();
+        }
+        else if (scene.name == "Title")
+        {
+            GameObject.Find("MainMenu/Canvas/MainPage/WhiteFade").GetComponent<Image>().color = UnityEngine.Color.black;
         }
     }
 
@@ -853,10 +939,6 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 snowZone.windActive = false;
             }
-        }
-        if (toggleAlpineAndMesa || toggleForceAlpine)
-        {
-            //snowZone.windChillPerSecond = 0.07f;
         }
         if (toggleTornadoDisable)
         {
