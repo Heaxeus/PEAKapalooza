@@ -38,6 +38,7 @@ using System.Collections;
 using UnityEditor.Analytics;
 using Peak.Network;
 using System.Drawing;
+using System.Linq;
 
 namespace PEAKapalooza;
 
@@ -150,7 +151,7 @@ public class PEAKapalooza : BaseUnityPlugin
                 {
                     lv.Bake(null);
                 }
-                
+
             }
 
             if (!Input.GetKey(KeyCode.LeftControl))
@@ -291,6 +292,50 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 MapHandler.JumpToSegment(Segment.Beach);
                 GameObject.Find("Map/Biome_1/Beach/Beach_Segment/crashed plane").SetActive(false);
+            }
+        }
+
+        [PunRPC]
+        public void HandleAssignedViewIDs_RPC(int[] ids)
+        {
+            Logger.LogWarning("12.1");
+            if (PhotonNetwork.IsMasterClient)
+            {
+                return;
+            }
+            Logger.LogWarning("12.2");
+            PhotonView[] source = (from v in ((Component)Singleton<MapHandler>.Instance).gameObject.GetComponentsInChildren<PhotonView>(true)
+                                   where v.ViewID == 0
+                                   select v).ToArray();
+            Logger.LogWarning("12.3");
+            PhotonView[] array = source.OrderBy(delegate (PhotonView v)
+            {
+                Logger.LogWarning("12.4");
+                GameObject gameObject = ((Component)v).gameObject;
+                List<string> list = new List<string>();
+                Transform val = gameObject.transform;
+                while ((UnityEngine.Object)(object)val != (UnityEngine.Object)null)
+                {
+                    list.Add(((UnityEngine.Object)val).name);
+                    val = val.parent;
+                }
+                Logger.LogWarning("12.5");
+                list.Reverse();
+                return string.Join("/", list);
+            }).ToArray();
+            Logger.LogWarning("12.6");
+            int num = Math.Min(array.Length, ids.Length);
+            for (int i = 0; i < num; i++)
+            {
+                try
+                {
+                    array[i].ViewID = ids[i];
+                    Logger.LogWarning("12.7." + "i");
+                }
+                catch (Exception arg)
+                {
+                    Logger.LogError((object)$"[Gen] Failed to assign view id on client: {arg}");
+                }
             }
         }
     }
@@ -516,17 +561,277 @@ public class PEAKapalooza : BaseUnityPlugin
         return false;
     }
 
+//TODO redo default biome props, shut off area rendering when starting run, shut off area rendering when moving to next area.
+    public static void Generate_Terrain(MapHandler.MapSegment segment)
+    {
+        PropGrouper pgrouper = null;
+        PropGrouper pgrouperCampfire = null;
+        if (segment.segmentParent.name.Contains("Desert"))
+        {
+            GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+            segment.segmentParent.SetActive(true);
+            segment.segmentCampfire.SetActive(true);
+            pgrouper = segment.segmentParent.transform.GetComponent<PropGrouper>() ?? segment.segmentParent.transform.gameObject.AddComponent<PropGrouper>();
+            pgrouper.RunAll();
+            Logger.LogWarning("4.4");
+            pgrouperCampfire = segment.segmentCampfire.GetComponent<PropGrouper>() ?? segment.segmentCampfire.AddComponent<PropGrouper>();
+            pgrouperCampfire.RunAll();
+            Logger.LogWarning("4.5");
+        }
+        else if (segment.segmentParent.name.Contains("Snow"))
+        {
+            GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+            segment.segmentParent.SetActive(true);
+            segment.segmentCampfire.SetActive(true);
+            pgrouper = segment.segmentParent.transform.GetComponent<PropGrouper>() ?? segment.segmentParent.transform.gameObject.AddComponent<PropGrouper>();
+            pgrouper.RunAll();
+            pgrouperCampfire = segment.segmentCampfire.GetComponent<PropGrouper>() ?? segment.segmentCampfire.AddComponent<PropGrouper>();
+            pgrouperCampfire.RunAll();
+        }
+        segment.segmentParent.SetActive(true);
+        segment.segmentCampfire.SetActive(true);
+        Generate_Late_Props(pgrouper);
+        Generate_Late_Props(pgrouperCampfire);
+    }
+
+    public static List<LevelGenStep> lgs = [];
+
+    public static void Generate_Late_Props(PropGrouper pgrouper)
+    {
+        lgs.Clear();
+        //might need to be false
+        LevelGenStep[] genSteps = pgrouper.GetComponentsInChildren<LevelGenStep>(true);
+        foreach (LevelGenStep step in genSteps)
+        {
+            PropGrouper parent = step.GetComponentInParent<PropGrouper>();
+            try
+            {
+                if (parent != null && parent.timing == PropGrouper.PropGrouperTiming.Late)
+                {
+                    lgs.Add(step);
+                }
+            }
+            catch
+            {
+                if (parent == pgrouper)
+                {
+                    lgs.Add(step);
+                }
+            }
+        }
+        foreach (LevelGenStep step in lgs)
+        {
+            try
+            {
+                step.Execute();
+            }catch (Exception e)
+            {
+                Logger.LogMessage("Could not execute level gen step: " + e);
+            }
+        }
+    }
 
 
+    [HarmonyPatch(typeof(MapHandler), "Start")]
+    [HarmonyPostfix]
+    public static IEnumerator Postfix_GenOptions_RunAll(IEnumerator __result)
+    {
+
+        while (__result.MoveNext())
+        {
+            yield return __result.Current;
+        }
+
+        List<int> assignedViewIDs = [];
+        Logger.LogWarning("1");
+        MapHandler.MapSegment[] segments = Singleton<MapHandler>.Instance.segments;
+
+        if (!PhotonNetwork.IsMasterClient)
+        {
+            yield break;
+        }
+        Logger.LogWarning("2");
+        foreach (MapHandler.MapSegment segment in segments)
+        {
+            Logger.LogWarning("3");
+            GameObject segmentParent = segment.segmentParent;
+            Logger.LogWarning("4");
+            Transform segmentParentTransform = segmentParent.transform;
+            Logger.LogMessage(segmentParentTransform.gameObject.name);
+            Logger.LogWarning("4.1");
+            
+
+            Logger.LogWarning("5");
+            
+            Logger.LogWarning("6");
+            GameObject segmentCampfire = segment.segmentCampfire;
+            Logger.LogWarning("7");
+            if (segmentCampfire == null)
+            {
+                Logger.LogWarning("7.1");
+                foreach (Transform val in segmentParentTransform.GetComponentsInChildren<Transform>(true))
+                {
+                    if (val.gameObject.name.Contains("Campfire"))
+                    {
+                        Logger.LogWarning("7.2");
+                        segmentCampfire = val.gameObject;
+                        break;
+                    }
+                }
+                Logger.LogWarning("7.3");
+            }
+            if (toggleAlpineAndMesa)
+            {
+                if (segmentParentTransform.gameObject.name.Contains("Desert") && defaultBiomes.Contains(Biome.BiomeType.Alpine))
+                {
+                    Generate_Terrain(segment);
+                }
+                else if (segmentParentTransform.gameObject.name.Contains("Snow") && defaultBiomes.Contains(Biome.BiomeType.Mesa))
+                {
+                    Generate_Terrain(segment);
+                }
+            }
+            Logger.LogWarning("7.4");
+            List<PhotonView> list3 =
+            [
+                .. from v in ((Component)segmentParentTransform).GetComponentsInChildren<PhotonView>(true)
+                where v.ViewID == 0
+                select v,
+            ];
+            if (segmentCampfire != null)
+            {
+                list3.AddRange(from v in segmentCampfire.GetComponentsInChildren<PhotonView>(true)
+                               where v.ViewID == 0
+                               select v);
+            }
+            Logger.LogWarning("8");
+            PhotonView[] array = [.. from v in list3
+                                                    where v != null
+                                                    orderby GetHierarchyPath(v.gameObject)
+                                                    select v];
+            Logger.LogWarning("START PRINT ARRAY");
+            foreach (PhotonView pv in array)
+            {
+                Logger.LogMessage(pv.gameObject.name);
+            }
+            Logger.LogWarning("END PRINT ARRAY");
+            Logger.LogWarning("9");
+            PhotonView[] array2 = array;
+            foreach (PhotonView view in array2)
+            {
+                assignedViewIDs.Add(AssignMasterClientViewID(((Component)view).gameObject));
+            }
+            Logger.LogWarning("10");
+
+        }
+        Logger.LogWarning("11");
+        if (assignedViewIDs.Count > 0)
+        {
+            Logger.LogWarning("12");
+            Logger.LogMessage(assignedViewIDs);
+            GameObject.Find("GAME").AddComponent<PhotonInterfacer>();
+            GameObject.Find("GAME").GetPhotonView().RPC("HandleAssignedViewIDs_RPC", RpcTarget.All, [assignedViewIDs.ToArray()]);
+            Logger.LogWarning("13");
+        }
+    }
+
+    public static string GetHierarchyPath(GameObject go)
+    {
+        List<string> list = new List<string>();
+        Transform val = go.transform;
+        while ((UnityEngine.Object)(object)val != (UnityEngine.Object)null)
+        {
+            list.Add(((UnityEngine.Object)val).name);
+            val = val.parent;
+        }
+        list.Reverse();
+        return string.Join("/", list);
+    }
+
+    public static int AssignMasterClientViewID(GameObject go)
+    {
+        int num = PhotonNetwork.AllocateViewID(false);
+        PhotonView component = go.GetComponent<PhotonView>();
+        component.ViewID = num;
+        Logger.LogMessage("GameObject: " + go.name + " given ViewID: " + num);
+        return num;
+    }
+
+    // [HarmonyPatch(typeof(MapHandler), "Start")]
+    // [HarmonyPrefix]
+    // public static IEnumerator Postfix_GenOptions_RunAll(MapHandler __instance)
+    // {
+    //     List<int> assignedViewIDs = [];
+    //     MapHandler.MapSegment[] segments = __instance.segments;
+
+    //     if (!PhotonNetwork.IsMasterClient)
+    //     {
+    //         yield break;
+    //     }
+    //     foreach (MapHandler.MapSegment segment in segments)
+    //     {
+    //         GameObject segmentParent = segment.segmentParent;
+    //         Transform segmentParentTransform = segmentParent.transform;
+
+    //         if (toggleAlpineAndMesa)
+    //         {
+    //             if ()
+    //             {
+
+    //             }
+    //             if (!((Component)segmentParentTransform).gameObject.activeSelf)
+    //             {
+    //                 ((Component)segmentParentTransform).gameObject.SetActive(true);
+    //             }
+    //         }
+    //     }
+
+
+    //     yield break;
+    // }
 
     [HarmonyPatch(typeof(MapHandler), "Awake")]
     [HarmonyPostfix]
     public static void Postfix_GenOptions_Awake(MapHandler __instance)
     {
-        foreach (MapHandler.MapSegment s in __instance.segments)
+        __instance.DetectBiomes();
+    }
+
+    public static Biome.BiomeType[] defaultBiomes = [];
+
+
+    [HarmonyPatch(typeof(MapHandler), "DetectBiomes")]
+    [HarmonyPrefix]
+    public static bool Prefix_GenOptions_DetectBiomes(MapHandler __instance)
+    {
+        defaultBiomes = __instance.biomes.ToArray();
+        __instance.biomes.Clear();
+        for (int i = 0; i < __instance.transform.childCount; i++)
         {
-            Logger.LogWarning(s.biome);
+            Transform child = __instance.transform.GetChild(i);
+            for (int j = 0; j < child.childCount; j++)
+            {
+                Logger.LogMessage("NAME OF GAME OBJECT: " + child.GetChild(j).gameObject.name);
+                if (toggleAlpineAndMesa)
+                {
+                    if (child.GetChild(j).gameObject.name == "Alpine" || child.GetChild(j).gameObject.name == "Mesa")
+                    {
+                        child.GetChild(j).gameObject.SetActive(true);
+                    }
+                }
+                Biome biome;
+                if (child.GetChild(j).gameObject.activeInHierarchy && child.GetChild(j).TryGetComponent<Biome>(out biome))
+                {
+                    Logger.LogMessage("BIOME ADDED: " + biome.biomeType);
+                    __instance.biomes.Add(biome.biomeType);
+                }
+            }
         }
+        foreach (Biome.BiomeType b in __instance.biomes)
+        {
+            Logger.LogMessage(b);
+        }
+        return false;
     }
 
 
@@ -569,27 +874,85 @@ public class PEAKapalooza : BaseUnityPlugin
                 if (GameObject.Find("Map/Biome_3/Alpine").activeSelf)
                 {
                     GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
-                    foreach(PropSpawner ps in GameObject.Find("Map/Biome_3/Mesa").GetComponentsInChildren<PropSpawner>())
-                    {
-                        Logger.LogError(ps.transform.parent.name);
-                        ps.SpawnNew();
-                    }
+                    // foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Mesa").GetComponentsInChildren<PropSpawner>())
+                    // {
+                    //     Logger.LogError(ps.transform.parent.name);
+                    //     ps.SpawnNew();
+                    // }
                 }
                 else
                 {
                     GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
-                    foreach(PropSpawner ps in GameObject.Find("Map/Biome_3/Alpine").GetComponentsInChildren<PropSpawner>())
-                    {
-                        ps.SpawnNew();
-                    }
+                    // foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Alpine").GetComponentsInChildren<PropSpawner>())
+                    // {
+                    //     ps.SpawnNew();
+                    // }
                 }
-                
-                
+
+
             }
         }
     }
 
 
+    [HarmonyPatch(typeof(PropSpawner), "SpawnNew")]
+    [HarmonyPrefix]
+    public static bool Prefix_DebugLogging_SpawnNew(bool executeDeferredImmediately, PropSpawner __instance)
+    {
+        if (__instance.chanceToUseSpawner < 0.999f && UnityEngine.Random.value > __instance.chanceToUseSpawner)
+	{
+		return false;
+	}
+	int num = __instance.nrOfSpawns;
+	if (__instance.randomSpawns)
+	{
+		num = UnityEngine.Random.Range(__instance.minSpawnCount, __instance.nrOfSpawns);
+	}
+	int num2 = 25000;
+	int num3 = 5000;
+	int num4 = 0;
+	while (num4 < num && num2 > 0 && num3 > 0)
+	{
+		num2--;
+		num3--;
+		if (__instance.TryToSpawn(num4))
+		{
+			num4++;
+			num3 = 5000;
+			if (__instance.syncTransforms)
+			{
+				Physics.SyncTransforms();
+			}
+		}
+	}
+	if (num2 == 0)
+	{
+		Debug.LogError("Max attempts reached in PropSpawner, could not spawn all props!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", __instance.gameObject);
+        Logger.LogWarning(__instance.gameObject.name);
+	}
+	if (num3 == 0)
+	{
+		Debug.LogError("Max attempts IN A ROW reached in PropSpawner, could not spawn all props!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", __instance.gameObject);
+        Logger.LogWarning(__instance.gameObject.name);
+	}
+	__instance.currentSpawns = __instance.transform.childCount;
+	__instance.SpawnDecor();
+	foreach (PostSpawnBehavior postSpawnBehavior in __instance.postSpawnBehaviors)
+	{
+		if (!postSpawnBehavior.mute)
+		{
+			if (executeDeferredImmediately || postSpawnBehavior.DeferredTiming != DeferredStepTiming.AfterCurrentGroupTiming)
+			{
+				postSpawnBehavior.RunBehavior(__instance.SpawnedProps);
+			}
+			else
+			{
+				__instance._deferredSteps.Add(postSpawnBehavior.ConstructDeferred(__instance));
+			}
+		}
+	}
+        return false;
+    }
 
 
 
@@ -653,7 +1016,8 @@ public class PEAKapalooza : BaseUnityPlugin
     {
         if (toggleAlpineAndMesa)
         {
-            foreach(LightVolume lv in FindObjectsByType<LightVolume>(FindObjectsSortMode.None)){
+            foreach (LightVolume lv in FindObjectsByType<LightVolume>(FindObjectsSortMode.None))
+            {
                 lv.Bake(null);
             }
         }
@@ -711,6 +1075,27 @@ public class PEAKapalooza : BaseUnityPlugin
         }
         else if (scene.name.StartsWith("Level_"))
         {
+            // if (toggleAlpineAndMesa)
+            // {
+
+            //     if (GameObject.Find("Map/Biome_3/Alpine").activeSelf)
+            //     {
+            //         GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+            //         foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Mesa").GetComponentsInChildren<PropSpawner>())
+            //         {
+            //             ps.SpawnNew();
+            //         }
+            //     }
+            //     else
+            //     {
+            //         GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+            //         foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Alpine").GetComponentsInChildren<PropSpawner>())
+            //         {
+            //             ps.SpawnNew();
+            //         }
+            //     }
+
+            // }
             startingRun = true;
             Peaking();
         }
