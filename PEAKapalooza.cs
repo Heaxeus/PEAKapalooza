@@ -52,7 +52,7 @@ public class PEAKapalooza : BaseUnityPlugin
 {
     internal static new ManualLogSource Logger;
 
-    public static bool debug = true;
+    public static bool debug = false;
 
 
 
@@ -147,7 +147,7 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 keypress = true;
                 // Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
-                GUIManager.instance.SetHeroTitle("Peak to Beach", null);
+                RunManager.Instance.SyncTimeMaster();
             }
             else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha0) && keypress == false)
             {
@@ -194,47 +194,72 @@ public class PEAKapalooza : BaseUnityPlugin
                                                                                                                                                                 
     **/
 
-    //Sets up run when PeakToBeach is enabled
-    //TODO need to have PhotonInterfacer be added to Character on game join, not when run starts. Otherwise, returning players don't have it
-    // [HarmonyPatch(typeof(LoadingScreen), "LoadingRoutine")]
-    // [HarmonyPostfix]
-    // public static IEnumerator Postfix_PeakToBeach_LoadingRoutine(IEnumerator __result, LoadingScreen __instance)
-    // {
-    //     if (togglePeakToBeach)
-    //     {
-    //         while (__result.MoveNext())
-    //         {
-    //             yield return __result.Current;
-    //         }
+    public static bool tempbool = false;
 
-    //     }
-    // }
-
-    [HarmonyPatch(typeof(PlayerHandler), "RegisterPlayerImpl")]
+    //Is called when run starts, and when new players join
+    [HarmonyPatch(typeof(RunManager), "RPC_SyncTime")]
     [HarmonyPostfix]
-    public static void Postfix_PeakToBeach_StartPassedOutOnTheBeach(PlayerHandler __instance)
+    public static void Postfix_PeakToBeach_RPC_SyncTime(RunManager __instance)
     {
-
-        if (PhotonNetwork.IsMasterClient && startingRun)
+        if (togglePeakToBeach)
         {
-            GameUtils.instance.gameObject.AddComponent<PhotonInterfacer>();
+            Logger.LogWarning("1");
+            Logger.LogWarning("2");
+            if (GameUtils.instance.gameObject.GetComponent<PhotonInterfacer>() == null)
+            {
+                GameUtils.instance.gameObject.AddComponent<PhotonInterfacer>();
+            }
+            ebc = GameObject.Find(Character.localCharacter.gameObject.name + "/Scout/Misc/EyeBlinkController").GetComponent<EyeBlinkController>();
+            Logger.LogWarning("3");
             foreach (Character character in FindObjectsByType<Character>(FindObjectsSortMode.None))
             {
+                Logger.LogWarning("4");
                 if (character.isBot == false)
                 {
-                    character.gameObject.AddComponent<PhotonInterfacer>();
+                    Logger.LogWarning("5");
+                    if (character.gameObject.GetComponent<PhotonInterfacer>() == null)
+                    {
+                        character.gameObject.AddComponent<PhotonInterfacer>();
+                    }
+
+                    Logger.LogWarning("6");
                     Logger.LogMessage("Added interface to: " + character.name);
                 }
             }
-
-            Character.localCharacter.view.RPC("RPC_Start_Peak_To_Beach", RpcTarget.All, []);
+            Logger.LogWarning("7");
+            if (PhotonNetwork.IsMasterClient && startingRun && !tempbool)
+            {
+                tempbool = true;
+                currentSegment = 3;
+                GameUtils.instance.photonView.RPC("RPC_Start_Peak_To_Beach", RpcTarget.All, []);
+                Logger.LogWarning("8");
+            }
         }
     }
 
+    //Does needed things when player joins room
+    [HarmonyPatch(typeof(CharacterSpawner), "OnPlayerEnteredRoom")]
+    [HarmonyPostfix]
+    public static void Postfix_PeakToBeach_Update(CharacterSpawner __instance)
+    {
+        if (PhotonNetwork.IsMasterClient && togglePeakToBeach)
+        {
+            __instance.StartCoroutine(PlayerJoined());
+        }
+    }
+
+    //Helper method
+    public static IEnumerator PlayerJoined()
+    {
+        yield return new WaitForSeconds(3f);
+        RunManager.Instance.SyncTimeMaster();
+    }
+
+
+    //Handles showing custom hero title
     public static bool shownStartTitle = false;
     public static EyeBlinkController ebc = null;
     public static bool temp = false;
-
     [HarmonyPatch(typeof(Character), "Update")]
     [HarmonyPostfix]
     public static void Postfix_PeakToBeach_Update(Character __instance)
@@ -251,6 +276,7 @@ public class PEAKapalooza : BaseUnityPlugin
     }
 
 
+    //Helper class that allows for RPC calls
     public class PhotonInterfacer : MonoBehaviour
     {
 
@@ -261,11 +287,25 @@ public class PEAKapalooza : BaseUnityPlugin
             currentSegment = segmentNum;
         }
 
-
+        //Start PtB mode
         [PunRPC]
         public void RPC_Start_Peak_To_Beach()
         {
+
+            Logger.LogWarning("9");
             MapHandler.JumpToSegment(Segment.TheKiln);
+            GameObject helicopter = GameObject.Find("Map/Biome_4/Volcano/Peak/PeakSequence/Helicopter/Helicopter");
+            helicopter.transform.parent = GameObject.Find("Map/Biome_4/Volcano/Peak").transform;
+            helicopter.transform.position = new Vector3(15.8f, 1225.486f, 2245.563f);
+            helicopter.transform.rotation = new Quaternion(0.9866f, 0.1127f, 0f, -0.1182f);
+            GameObject.Find("Map/Biome_4/Volcano/Peak/Helicopter/Rotor").SetActive(false);
+            GameObject.Find("Map/Biome_4/Volcano/Peak/Helicopter/ButtFan").SetActive(false);
+            GameObject smoke = GameObject.Find("Map/Biome_1/Beach/Beach_Segment/crashed plane/Back Half/VFX_Smoke (1)");
+            smoke.transform.parent = GameObject.Find("Map/Biome_4/Volcano/Peak").transform;
+            smoke.transform.position = new Vector3(15.8f, 1225.486f, 2245.563f);
+
+
+            Logger.LogWarning("10");
             if (PhotonNetwork.IsMasterClient)
             {
                 PhotonNetwork.Instantiate("0_Items/Backpack", new Vector3(16f, 1235f, 2239f), Quaternion.identity, 0, null).GetComponent<Item>();
@@ -334,6 +374,7 @@ public class PEAKapalooza : BaseUnityPlugin
             }
         }
 
+        //Assigns Photon view IDs when generating new terrain/props
         [PunRPC]
         public void HandleAssignedViewIDs_RPC(int[] ids)
         {
@@ -515,13 +556,22 @@ public class PEAKapalooza : BaseUnityPlugin
             if (PhotonNetwork.IsMasterClient && segment == Segment.TheKiln)
             {
                 Debug.Log(string.Format("Teleporting all players to {0} campfire..", segment));
+                Logger.LogWarning("12");
+                List<Character> characterList = [];
                 foreach (Character character in PlayerHandler.GetAllPlayerCharacters())
                 {
-                    if (playersToTeleport.Contains(character.photonView.Owner.ActorNumber) && character.isBot == false)
+                    if (character.isBot == false)
                     {
-                        __instance.StartCoroutine(PlayerWarpHelper(character));
+                        characterList.Add(character);
                     }
                 }
+                foreach (Character character in characterList)
+                {
+                    Logger.LogWarning("13");
+                    Singleton<MapHandler>.Instance.StartCoroutine(PlayerWarpHelper(character));
+                    Logger.LogWarning("14");
+                }
+
             }
             if (sendToEveryone)
             {
@@ -532,15 +582,19 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
+    //Helper method
     public static IEnumerator PlayerWarpHelper(Character character)
     {
+        Logger.LogWarning("15");
         yield return new WaitForSeconds(3f);
-        Character.localCharacter.photonView.RPC("WarpPlayerRPC", RpcTarget.All, new object[] { new Vector3(16f, 1235f, 2239f), false });
+        Logger.LogWarning("16");
+        character.view.RPC("WarpPlayerRPC", RpcTarget.All, new object[] { new Vector3(16f, 1235f, 2239f), false });
+        Logger.LogWarning("17");
         yield break;
     }
 
 
-
+    //Fixes luggage closing when lighting campfire
     [HarmonyPatch(typeof(Luggage), "OpenLuggageRPC")]
     [HarmonyPostfix]
     public static void Postfix_FixLuggageState_OpenLuggageRPC(bool spawnItems, Luggage __instance)
@@ -579,7 +633,7 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
-
+    //Custom hero title
     [HarmonyPatch(typeof(GUIManager), "SetHeroTitle")]
     [HarmonyPrefix]
     public static bool Prefix_CustomHeroTitle_SetHeroTitle(string text, AudioClip stinger, GUIManager __instance)
@@ -602,19 +656,24 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
+    //More custom hero title
     public static IEnumerator CustomHeroTitle(string heroString, GUIManager __instance)
     {
         __instance.heroCanvasObject.gameObject.SetActive(true);
         yield return null;
 
         string dayString;
-        if (heroString == "Peak to Beach")
+        if (heroString == "Peak To Beach")
         {
             dayString = "Light a Flare near BingBong!";
         }
         else
         {
             dayString = DayNightManager.instance.DayCountString();
+        }
+        if (heroString == "PEAK")
+        {
+            yield break;
         }
 
         string timeOfDayString = DayNightManager.instance.TimeOfDayString();
@@ -673,6 +732,7 @@ public class PEAKapalooza : BaseUnityPlugin
                                                               
     **/
 
+    //Handles rebaking lights when generating new terrain/props
     [HarmonyPatch(typeof(Campfire), "Light_Rpc")]
     [HarmonyPostfix]
     public static void Postfix_LightingUpdates_Light_Rpc(Campfire __instance)
@@ -693,11 +753,7 @@ public class PEAKapalooza : BaseUnityPlugin
 
     }
 
-
-
-
-
-
+    //Sets server timeout limit to forever
     [HarmonyPatch(typeof(ConnectionHandler), "Awake")]
     [HarmonyPostfix]
     public static void Postfix_DontKickMe_Awake(ConnectionHandler __instance)
@@ -705,7 +761,7 @@ public class PEAKapalooza : BaseUnityPlugin
         __instance.KeepAliveInBackground = Int32.MaxValue;
     }
 
-
+    //Removes pretitle screen
     [HarmonyPatch(typeof(Pretitle), "Update")]
     [HarmonyPrefix]
     public static bool Prefix_StopBlindingMe_Update(Pretitle __instance)
@@ -714,6 +770,7 @@ public class PEAKapalooza : BaseUnityPlugin
         return false;
     }
 
+    //Handles props for generation
     [HarmonyPatch(typeof(PropSpawner), "SpawnNew")]
     [HarmonyPrefix]
     public static bool Prefix_SpawnProps_SpawnNew(bool executeDeferredImmediately, PropSpawner __instance)
@@ -755,7 +812,6 @@ public class PEAKapalooza : BaseUnityPlugin
                 Debug.LogError("Max attempts IN A ROW reached in PropSpawner, could not spawn all props!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", __instance.gameObject);
             }
             __instance.currentSpawns = __instance.transform.childCount;
-            // __instance.SpawnDecor();
             foreach (PostSpawnBehavior postSpawnBehavior in __instance.postSpawnBehaviors)
             {
                 if (!postSpawnBehavior.mute)
@@ -775,112 +831,120 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
-    //TODO redo default biome props, shut off area rendering when starting run, shut off area rendering when moving to next area.
+    //Helper method for generating terrain
     public static void Generate_Terrain(MapHandler.MapSegment segment)
     {
-        PropGrouper pgrouper = null;
-        PropGrouper pgrouperCampfire = null;
-        PropGrouper pgrouperProps = null;
-        PropGrouper pgrouperCampfireProps = null;
-        if (defaultBiomes.Contains(Biome.BiomeType.Alpine))
+        if (toggleAlpineAndMesa)
         {
-            GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+            PropGrouper pgrouper = null;
+            PropGrouper pgrouperCampfire = null;
+            PropGrouper pgrouperProps = null;
+            PropGrouper pgrouperCampfireProps = null;
+            if (defaultBiomes.Contains(Biome.BiomeType.Alpine))
+            {
+                GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
+                segment.segmentParent.SetActive(true);
+                segment.segmentCampfire.SetActive(true);
+                pgrouper = segment.segmentParent.transform.GetComponent<PropGrouper>() ?? segment.segmentParent.transform.gameObject.AddComponent<PropGrouper>();
+                pgrouper.RunAll(false);
+                Logger.LogWarning("4.4");
+                pgrouperCampfire = segment.segmentCampfire.GetComponent<PropGrouper>() ?? segment.segmentCampfire.AddComponent<PropGrouper>();
+                pgrouperCampfire.RunAll();
+                Logger.LogWarning("4.5");
+                pgrouperProps = GameObject.Find("Map/Biome_3/Alpine/Snow_Segment").transform.GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Alpine/Snow_Segment").transform.gameObject.AddComponent<PropGrouper>();
+                pgrouperCampfireProps = GameObject.Find("Map/Biome_3/Alpine/Snow_Campfire").GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Alpine/Snow_Campfire").AddComponent<PropGrouper>();
+            }
+            else if (defaultBiomes.Contains(Biome.BiomeType.Mesa))
+            {
+                GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
+                GameObject segment2 = GameObject.Find("Map/Biome_3/Alpine/Snow_Segment");
+                GameObject segmentCampfire2 = GameObject.Find("Map/Biome_3/Alpine/Snow_Campfire");
+
+                Logger.LogWarning("4.6");
+
+                segment2.SetActive(true);
+                segmentCampfire2.SetActive(true);
+                pgrouper = segment2.transform.GetComponent<PropGrouper>() ?? segment2.transform.gameObject.AddComponent<PropGrouper>();
+                Logger.LogWarning("4.7");
+
+                pgrouper.RunAll(false);
+                Logger.LogWarning("4.8");
+
+                pgrouperCampfire = segmentCampfire2.GetComponent<PropGrouper>() ?? segmentCampfire2.AddComponent<PropGrouper>();
+                pgrouperCampfire.RunAll();
+                Logger.LogWarning("4.9");
+
+                pgrouperProps = GameObject.Find("Map/Biome_3/Mesa/Desert_Segment").transform.GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Mesa/Desert_Segment").transform.gameObject.AddComponent<PropGrouper>();
+                pgrouperCampfireProps = GameObject.Find("Map/Biome_3/Mesa/Desert_Campfire").GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Mesa/Desert_Campfire").AddComponent<PropGrouper>();
+            }
             segment.segmentParent.SetActive(true);
             segment.segmentCampfire.SetActive(true);
-            pgrouper = segment.segmentParent.transform.GetComponent<PropGrouper>() ?? segment.segmentParent.transform.gameObject.AddComponent<PropGrouper>();
-            pgrouper.RunAll(false);
-            Logger.LogWarning("4.4");
-            pgrouperCampfire = segment.segmentCampfire.GetComponent<PropGrouper>() ?? segment.segmentCampfire.AddComponent<PropGrouper>();
-            pgrouperCampfire.RunAll();
-            Logger.LogWarning("4.5");
-            pgrouperProps = GameObject.Find("Map/Biome_3/Alpine/Snow_Segment").transform.GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Alpine/Snow_Segment").transform.gameObject.AddComponent<PropGrouper>();
-            pgrouperCampfireProps = GameObject.Find("Map/Biome_3/Alpine/Snow_Campfire").GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Alpine/Snow_Campfire").AddComponent<PropGrouper>();
+            Generate_Late_Props(pgrouper);
+            Generate_Late_Props(pgrouperCampfire);
+            Generate_Late_Props(pgrouperProps);
+            Generate_Late_Props(pgrouperCampfireProps);
         }
-        else if (defaultBiomes.Contains(Biome.BiomeType.Mesa))
-        {
-            GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
-            GameObject segment2 = GameObject.Find("Map/Biome_3/Alpine/Snow_Segment");
-            GameObject segmentCampfire2 = GameObject.Find("Map/Biome_3/Alpine/Snow_Campfire");
-
-            Logger.LogWarning("4.6");
-
-            segment2.SetActive(true);
-            segmentCampfire2.SetActive(true);
-            pgrouper = segment2.transform.GetComponent<PropGrouper>() ?? segment2.transform.gameObject.AddComponent<PropGrouper>();
-            //false doesn't update lightmap
-            Logger.LogWarning("4.7");
-
-            pgrouper.RunAll(false);
-            Logger.LogWarning("4.8");
-
-            pgrouperCampfire = segmentCampfire2.GetComponent<PropGrouper>() ?? segmentCampfire2.AddComponent<PropGrouper>();
-            pgrouperCampfire.RunAll();
-            Logger.LogWarning("4.9");
-
-            pgrouperProps = GameObject.Find("Map/Biome_3/Mesa/Desert_Segment").transform.GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Mesa/Desert_Segment").transform.gameObject.AddComponent<PropGrouper>();
-            pgrouperCampfireProps = GameObject.Find("Map/Biome_3/Mesa/Desert_Campfire").GetComponent<PropGrouper>() ?? GameObject.Find("Map/Biome_3/Mesa/Desert_Campfire").AddComponent<PropGrouper>();
-        }
-        segment.segmentParent.SetActive(true);
-        segment.segmentCampfire.SetActive(true);
-        Generate_Late_Props(pgrouper);
-        Generate_Late_Props(pgrouperCampfire);
-        Generate_Late_Props(pgrouperProps);
-        Generate_Late_Props(pgrouperCampfireProps);
     }
 
+    //More prop gen stuff
     public static List<LevelGenStep> lgs = [];
-
     public static void Generate_Late_Props(PropGrouper pgrouper)
     {
-        lgs.Clear();
-        //might need to be false
-        LevelGenStep[] genSteps = pgrouper.GetComponentsInChildren<LevelGenStep>(true);
-        foreach (LevelGenStep step in genSteps)
+        if (toggleAlpineAndMesa)
         {
-            PropGrouper parent = step.GetComponentInParent<PropGrouper>();
-            try
+
+
+            lgs.Clear();
+            LevelGenStep[] genSteps = pgrouper.GetComponentsInChildren<LevelGenStep>(true);
+            foreach (LevelGenStep step in genSteps)
             {
-                if (parent != null && parent.timing == PropGrouper.PropGrouperTiming.Late)
+                PropGrouper parent = step.GetComponentInParent<PropGrouper>();
+                try
                 {
-                    lgs.Add(step);
+                    if (parent != null && parent.timing == PropGrouper.PropGrouperTiming.Late)
+                    {
+                        lgs.Add(step);
+                    }
+                }
+                catch
+                {
+                    if (parent == pgrouper)
+                    {
+                        lgs.Add(step);
+                    }
                 }
             }
-            catch
+            foreach (LevelGenStep step in lgs)
             {
-                if (parent == pgrouper)
+                try
                 {
-                    lgs.Add(step);
+                    step.Execute();
                 }
-            }
-        }
-        foreach (LevelGenStep step in lgs)
-        {
-            try
-            {
-                step.Execute();
-            }
-            catch
-            {
-                Logger.LogMessage("Could not execute level gen step!");
+                catch
+                {
+                    Logger.LogMessage("Could not execute level gen step!");
+                }
             }
         }
     }
 
-
+    //Calls to start terrain/prop gen
     [HarmonyPatch(typeof(MapHandler), "Start")]
     [HarmonyPostfix]
     public static IEnumerator Postfix_GenOptions_RunAll(IEnumerator __result)
     {
+
+        while (__result.MoveNext())
+        {
+            yield return __result.Current;
+        }
         if (toggleAlpineAndMesa)
         {
-            while (__result.MoveNext())
-            {
-                yield return __result.Current;
-            }
             Singleton<MapHandler>.Instance.StartCoroutine(MH_Start_Gen());
         }
     }
 
+    //Helper method
     public static IEnumerator MH_Start_Gen()
     {
         List<int> assignedViewIDs = [];
@@ -981,7 +1045,7 @@ public class PEAKapalooza : BaseUnityPlugin
     }
 
 
-
+    //Helper method    
     public static string GetHierarchyPath(GameObject go)
     {
         List<string> list = new List<string>();
@@ -995,6 +1059,7 @@ public class PEAKapalooza : BaseUnityPlugin
         return string.Join("/", list);
     }
 
+    //Helper method
     public static int AssignMasterClientViewID(GameObject go)
     {
         int num = PhotonNetwork.AllocateViewID(false);
@@ -1004,7 +1069,7 @@ public class PEAKapalooza : BaseUnityPlugin
         return num;
     }
 
-
+    //Starts terrain/prop gen
     [HarmonyPatch(typeof(MapHandler), "Awake")]
     [HarmonyPostfix]
     public static void Postfix_GenOptions_Awake(MapHandler __instance)
@@ -1015,8 +1080,9 @@ public class PEAKapalooza : BaseUnityPlugin
         }
     }
 
-    public static Biome.BiomeType[] defaultBiomes = [];
 
+    //More terrain/prop gen
+    public static Biome.BiomeType[] defaultBiomes = [];
 
     [HarmonyPatch(typeof(MapHandler), "DetectBiomes")]
     [HarmonyPrefix]
@@ -1053,15 +1119,10 @@ public class PEAKapalooza : BaseUnityPlugin
             }
             return false;
         }
-        else
-        {
-            return true;
-        }
+        return true;
     }
 
-
-
-
+    //Used to handle most generation options, potentially obselete now/needs to be redone
     [HarmonyPatch(typeof(MapHandler), "GoToSegment")]
     [HarmonyPostfix]
     public static void Postfix_GenOptions_GoToSegment(Segment s, MapHandler __instance)
@@ -1099,88 +1160,16 @@ public class PEAKapalooza : BaseUnityPlugin
                 if (GameObject.Find("Map/Biome_3/Alpine").activeSelf)
                 {
                     GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
-                    // foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Mesa").GetComponentsInChildren<PropSpawner>())
-                    // {
-                    //     Logger.LogError(ps.transform.parent.name);
-                    //     ps.SpawnNew();
-                    // }
                 }
                 else
                 {
                     GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
-                    // foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Alpine").GetComponentsInChildren<PropSpawner>())
-                    // {
-                    //     ps.SpawnNew();
-                    // }
                 }
-
-
             }
         }
     }
 
-
-    [HarmonyPatch(typeof(PropSpawner), "SpawnNew")]
-    [HarmonyPrefix]
-    public static bool Prefix_DebugLogging_SpawnNew(bool executeDeferredImmediately, PropSpawner __instance)
-    {
-        if (__instance.chanceToUseSpawner < 0.999f && UnityEngine.Random.value > __instance.chanceToUseSpawner)
-        {
-            return false;
-        }
-        int num = __instance.nrOfSpawns;
-        if (__instance.randomSpawns)
-        {
-            num = UnityEngine.Random.Range(__instance.minSpawnCount, __instance.nrOfSpawns);
-        }
-        int num2 = 25000;
-        int num3 = 5000;
-        int num4 = 0;
-        while (num4 < num && num2 > 0 && num3 > 0)
-        {
-            num2--;
-            num3--;
-            if (__instance.TryToSpawn(num4))
-            {
-                num4++;
-                num3 = 5000;
-                if (__instance.syncTransforms)
-                {
-                    Physics.SyncTransforms();
-                }
-            }
-        }
-        if (num2 == 0)
-        {
-            Debug.LogError("Max attempts reached in PropSpawner, could not spawn all props!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", __instance.gameObject);
-            Logger.LogWarning(__instance.gameObject.name);
-        }
-        if (num3 == 0)
-        {
-            Debug.LogError("Max attempts IN A ROW reached in PropSpawner, could not spawn all props!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!", __instance.gameObject);
-            Logger.LogWarning(__instance.gameObject.name);
-        }
-        __instance.currentSpawns = __instance.transform.childCount;
-        __instance.SpawnDecor();
-        foreach (PostSpawnBehavior postSpawnBehavior in __instance.postSpawnBehaviors)
-        {
-            if (!postSpawnBehavior.mute)
-            {
-                if (executeDeferredImmediately || postSpawnBehavior.DeferredTiming != DeferredStepTiming.AfterCurrentGroupTiming)
-                {
-                    postSpawnBehavior.RunBehavior(__instance.SpawnedProps);
-                }
-                else
-                {
-                    __instance._deferredSteps.Add(postSpawnBehavior.ConstructDeferred(__instance));
-                }
-            }
-        }
-        return false;
-    }
-
-
-
+    //Handles fog moving faster
     [HarmonyPatch(typeof(OrbFogHandler), "WaitToMove")]
     [HarmonyPrefix]
     public static bool Prefix_FogFaster_WaitToMove(OrbFogHandler __instance)
@@ -1193,7 +1182,7 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
-
+    //handles tornado's moving faster
     [HarmonyPatch(typeof(Tornado), "Movement")]
     [HarmonyPrefix]
     public static bool Prefix_TornadoFaster_Movement(Tornado __instance)
@@ -1219,7 +1208,7 @@ public class PEAKapalooza : BaseUnityPlugin
     }
 
 
-
+    //handles sun hurting in Mesa
     [HarmonyPatch(typeof(HotSun), "Update")]
     [HarmonyPrefix]
     public static bool Prefix_HotSunDisable_Update(HotSun __instance)
@@ -1231,24 +1220,7 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
-
-
-
-
-    [HarmonyPatch(typeof(BakedVolumeLight), "Rebake")]
-    [HarmonyPostfix]
-    public static void Postfix_RebakeAllLights_Rebake(BakedVolumeLight __instance)
-    {
-        if (toggleAlpineAndMesa)
-        {
-            foreach (LightVolume lv in FindObjectsByType<LightVolume>(FindObjectsSortMode.None))
-            {
-                lv.Bake(null);
-            }
-        }
-    }
-
-
+    //Handles enabling lava rising
     [HarmonyPatch(typeof(LavaRising), "Update")]
     [HarmonyPrefix]
     public static bool Prefix_LavaRisingDisable_Update(LavaRising __instance)
@@ -1267,7 +1239,7 @@ public class PEAKapalooza : BaseUnityPlugin
 
 
 
-
+    //Handles more fog things
     [HarmonyPatch(typeof(OrbFogHandler), "Move")]
     [HarmonyPrefix]
     public static bool Prefix_FogFaster_Move(OrbFogHandler __instance)
@@ -1287,7 +1259,7 @@ public class PEAKapalooza : BaseUnityPlugin
     }
 
 
-
+    //Used to tell what scene we're in
     private void OnSceneChange(Scene scene, LoadSceneMode mode)
     {
         Logger.LogMessage(scene.name);
@@ -1300,28 +1272,10 @@ public class PEAKapalooza : BaseUnityPlugin
         }
         else if (scene.name.StartsWith("Level_"))
         {
-            // if (toggleAlpineAndMesa)
-            // {
-
-            //     if (GameObject.Find("Map/Biome_3/Alpine").activeSelf)
-            //     {
-            //         GameObject.Find("Map/Biome_3/Mesa").SetActive(true);
-            //         foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Mesa").GetComponentsInChildren<PropSpawner>())
-            //         {
-            //             ps.SpawnNew();
-            //         }
-            //     }
-            //     else
-            //     {
-            //         GameObject.Find("Map/Biome_3/Alpine").SetActive(true);
-            //         foreach (PropSpawner ps in GameObject.Find("Map/Biome_3/Alpine").GetComponentsInChildren<PropSpawner>())
-            //         {
-            //             ps.SpawnNew();
-            //         }
-            //     }
-
-            // }
             startingRun = true;
+            shownStartTitle = false;
+            tempbool = false;
+            wonGame = false;
             Peaking();
         }
         else if (scene.name == "Title")
