@@ -34,10 +34,21 @@
       <HintPath>..\..\PEAK_Data\Managed\Assembly-CSharp.dll</HintPath>
     </Reference>
 
+    <Reference Include="Assembly-CSharp-firstpass.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Assembly-CSharp-firstpass.dll</HintPath>
+    </Reference>
+
     <Reference Include="PhotonUnityNetworking.dll" Publicize="true"> 
       <HintPath>..\..\PEAK_Data\Managed\PhotonUnityNetworking.dll</HintPath>
     </Reference>
 
+    <Reference Include="Sirenix.Serialization.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\Sirenix.Serialization.dll</HintPath>
+    </Reference>
+    
+    <Reference Include="DOTween.dll" Publicize="true"> 
+      <HintPath>..\..\PEAK_Data\Managed\DOTween.dll</HintPath>
+    </Reference>
 
     <Reference Include="PhotonRealtime.dll" Publicize="true"> 
       <HintPath>..\..\PEAK_Data\Managed\PhotonRealtime.dll</HintPath>
