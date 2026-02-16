@@ -1,16 +1,15 @@
 # PEAKapalooza
 
-**PEAKapalooza** contains a number of small to medium mix-and-match changes to the game, along with a couple larger "gamemodes"!
+**PEAKapalooza** contains a number of small to medium mix-and-match changes to the game, along with a couple larger "gamemodes", like Peak to Beach!
 
 Any bugs can be put in the thread on the [PEAK modding discord](https://discord.gg/SAw86z24rB)
 
 The passport should have a "Next Page" button in the top right.
-![](https://i.imgur.com/pMZ4kKY.png)
+![](https://i.imgur.com/4nTLrhx.png)
 
 ## Known Bugs
 
-- If doing multiple Peak To Beach runs in a row, you must fully close an relaunch Peak for them to work.
-- Everyone joining in Peak to Beach mode must be in lobby when game starts. Joining into a running game will break things!
+- Many of the generation options (Force Mesa, Force Alpine, etc.) are needing a complete rewrite to work due to recent game changes. For now, only "Alpine and Mesa Gen" works!
 
 ## Features
 
