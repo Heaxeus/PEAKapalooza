@@ -1,6 +1,7 @@
 ﻿
 /**
 The file globalgamemanagers in PEAK_DATA can be replaced to remove almost all of the white screen on load. Windows (I think) still lets a little flash of white get through.
+Ascent text is GAME/GUIManager/Canvas_HUD/AscentUI getcomponent TMPro.TextMeshProUGUI also TMPro.TMP_SpriteAnimator
 **/
 
 
@@ -126,7 +127,7 @@ public class PEAKapalooza : BaseUnityPlugin
             {
                 keypress = true;
                 // Character.localCharacter.WarpPlayer(new Vector3(16f, 1235f, 2239f), true);
-                RunManager.Instance.SyncTimeMaster();
+                GUIManager.instance.SetHeroTitle(UnityEngine.Random.RandomRangeInt(1, 100).ToString(), null);
             }
             else if (Input.GetKey(KeyCode.LeftControl) && Input.GetKeyDown(KeyCode.Alpha0) && keypress == false)
             {
@@ -182,10 +183,6 @@ public class PEAKapalooza : BaseUnityPlugin
     {
         if (togglePeakToBeach)
         {
-            if (GameUtils.instance.gameObject.GetComponent<PhotonInterfacer>() == null)
-            {
-                GameUtils.instance.gameObject.AddComponent<PhotonInterfacer>();
-            }
             ebc = GameObject.Find(Character.localCharacter.gameObject.name + "/Scout/Misc/EyeBlinkController").GetComponent<EyeBlinkController>();
             foreach (Character character in FindObjectsByType<Character>(FindObjectsSortMode.None))
             {
@@ -243,6 +240,23 @@ public class PEAKapalooza : BaseUnityPlugin
         }
     }
 
+    //Adds Ascent text flair
+    [HarmonyPatch(typeof(AscentUI), "Update")]
+    [HarmonyPrefix]
+    public static bool Prefix_PeakToBeach_Update(AscentUI __instance)
+    {
+        if (togglePeakToBeach)
+        {
+            int currentAscent = Ascents._currentAscent;
+            __instance.text.text = "DESCENT " + currentAscent;
+            if (currentAscent == 0)
+            {
+                __instance.text.text = "";
+            }
+            return false;
+        }
+        return true;
+    }
 
     //Helper class that allows for RPC calls
     public class PhotonInterfacer : MonoBehaviour
@@ -388,6 +402,18 @@ public class PEAKapalooza : BaseUnityPlugin
                 }
             }
         }
+
+
+        [PunRPC]
+        public void RPC_Sync_Seed(int newSeed)
+        {
+            UnityEngine.Random.InitState(newSeed);
+            seed = newSeed;
+            Logger.LogMessage("SEED: " + newSeed);
+            Logger.LogMessage("Seed Test: " + UnityEngine.Random.RandomRangeInt(1, 99999999));
+        }
+
+
     }
 
     //Handles loading previous zone when lighting Campfire
@@ -592,6 +618,7 @@ public class PEAKapalooza : BaseUnityPlugin
     }
 
     public static bool shownAMTitle = false;
+    public static bool shownCTitle = false;
 
     //More custom hero title
     public static IEnumerator CustomHeroTitle(string heroString, GUIManager __instance)
@@ -612,11 +639,30 @@ public class PEAKapalooza : BaseUnityPlugin
         {
             yield break;
         }
-        if ((heroString == "ALPINE" || heroString == "MESA") && toggleAlpineAndMesa && !shownAMTitle)
+        if (heroString == "ALPINE" || heroString == "MESA")
         {
-            shownAMTitle = true;
-            heroString = "ALPINE & MESA";
+            if (toggleAlpineAndMesa && !shownAMTitle)
+            {
+                shownAMTitle = true;
+                heroString = "ALPINE & MESA";
+            }
+            else if (toggleAlpineAndMesa && shownAMTitle)
+            {
+                yield break;
+            }
         }
+        if (heroString == "CALDERA")
+        {
+            if (toggleAlpineAndMesa && !shownCTitle)
+            {
+                shownCTitle = true;
+            }
+            else if (toggleAlpineAndMesa && shownCTitle)
+            {
+                heroString = "THE KILN";
+            }
+        }
+
 
         string timeOfDayString = DayNightManager.instance.TimeOfDayString();
         __instance.heroObject.gameObject.SetActive(true);
@@ -719,6 +765,9 @@ public class PEAKapalooza : BaseUnityPlugin
     {
         if (toggleAlpineAndMesa)
         {
+            Logger.LogMessage("Seed is: " + seed);
+            UnityEngine.Random.InitState(seed);
+            Logger.LogMessage("Pre Prop Spawning Seed Test: " + UnityEngine.Random.Range(1, 100));
             if (__instance.chanceToUseSpawner < 0.999f && UnityEngine.Random.value > __instance.chanceToUseSpawner)
             {
                 return false;
@@ -765,11 +814,15 @@ public class PEAKapalooza : BaseUnityPlugin
         return true;
     }
 
+    public static int seed = 0;
+
     //Helper method for generating terrain
     public static void Generate_Terrain(MapHandler.MapSegment segment)
     {
+
         if (toggleAlpineAndMesa)
         {
+
             PropGrouper pgrouper = null;
             PropGrouper pgrouperCampfire = null;
             PropGrouper pgrouperProps = null;
@@ -847,7 +900,7 @@ public class PEAKapalooza : BaseUnityPlugin
                 }
                 catch
                 {
-                    
+
                 }
             }
         }
@@ -1171,6 +1224,16 @@ public class PEAKapalooza : BaseUnityPlugin
             tempbool = false;
             wonGame = false;
             shownAMTitle = false;
+            shownCTitle = false;
+            if (GameUtils.instance.gameObject.GetComponent<PhotonInterfacer>() == null)
+            {
+                GameUtils.instance.gameObject.AddComponent<PhotonInterfacer>();
+            }
+            if (PhotonNetwork.IsMasterClient)
+            {
+                seed = UnityEngine.Random.Range(0, 99999999);
+                GameUtils.instance.photonView.RPC("RPC_Sync_Seed", RpcTarget.All, [seed]);
+            }
             Peaking();
         }
         else if (scene.name == "Title")
